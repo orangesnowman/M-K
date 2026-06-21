@@ -375,6 +375,20 @@ export default function PipelineSandbox({
 
   const handleSubmitClick = () => {
     if (isCurrentlyPublished) {
+      if (formData.rating >= 4) {
+        if (formData.comments) {
+          copyTextToClipboard(formData.comments);
+        }
+        try {
+          const reviewUrl = routingConfig.googleReviewsUrl || "https://g.page/r/CajrrF4R_V20EAI/review";
+          const win = window.open(reviewUrl, '_blank');
+          if (win) {
+            win.focus();
+          }
+        } catch (e) {
+          console.warn("Direct navigation / popup was blocked by browser:", e);
+        }
+      }
       handleAutoSubmit();
     } else {
       handleSimulateRouting();
@@ -457,33 +471,41 @@ export default function PipelineSandbox({
               </div>
               <div className="space-y-3">
                 <h3 className="text-xl font-bold text-slate-950">Thank you, {formData.name || 'Federico'}!</h3>
-                <p className="text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+                <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
                   {formData.rating >= 4 
-                    ? "We have successfully recorded your feedback. Thank you for taking the time to share your experience with us!" 
+                    ? "We have successfully recorded your feedback and opened our Google Review page in a new window/tab. In case it didn't open automatically, please click below." 
                     : "We appreciate your feedback and are looking into how we can improve. Our support desk has been notified."}
                 </p>
+                {formData.rating >= 4 && formData.comments && (
+                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl max-w-sm mx-auto text-left space-y-1.5 shadow-2xs">
+                    <p className="text-[11px] font-bold text-amber-850 flex items-center gap-1">
+                      <span>📋 Review comments copied!</span>
+                    </p>
+                    <p className="text-[11px] text-amber-705 italic line-clamp-2">"{formData.comments}"</p>
+                    <p className="text-[10px] text-slate-400 font-medium">Just right-click and paste it on the Google form!</p>
+                  </div>
+                )}
               </div>
+
+              {formData.rating >= 4 && (
+                <div className="pt-2">
+                  <a
+                    href={routingConfig.googleReviewsUrl || "https://g.page/r/CajrrF4R_V20EAI/review"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#b91c1c] text-white rounded-xl text-sm font-bold shadow-md cursor-pointer transition-all duration-150 active:scale-98"
+                    id="published-submit-review-btn"
+                  >
+                    <Sparkles className="w-4 h-4 text-white" />
+                    <span>Open Google Review Page</span>
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <div className={isCurrentlyPublished ? "bg-white p-0 space-y-6" : "bg-white rounded-2xl border border-slate-100 p-6 shadow-xs"}>
               
-              {isCurrentlyPublished ? (
-                // In published mode, we place the Connect Google Account button right here above the inputs
-                !token && onLogin && (
-                  <div className="mb-4 flex justify-start">
-                    <button
-                      type="button"
-                      onClick={onLogin}
-                      disabled={isLoggingIn}
-                      className="text-xs font-bold px-5 py-2.5 bg-red-650 hover:bg-red-750 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-full transition-all duration-200 cursor-pointer flex items-center gap-2 shadow-xs"
-                      id="sandbox-auth-btn-under-title"
-                    >
-                      {isLoggingIn && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                      <span>Connect Google Account</span>
-                    </button>
-                  </div>
-                )
-              ) : (
+              {!isCurrentlyPublished && (
                 // Original Input Simulator header block for development mode
                 <div className="mb-5">
                   <h3 className="font-semibold text-slate-900 text-lg">Input Simulator</h3>
