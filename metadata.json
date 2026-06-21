@@ -1,0 +1,6 @@
+{
+  "name": "M&K Review Automator",
+  "description": "Automate customer feedback processes by creating connected Google Forms, Sheets, and Apps Script with branching Gmail routing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

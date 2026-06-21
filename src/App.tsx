@@ -1,0 +1,563 @@
+import React, { useState, useEffect } from 'react';
+import { User } from 'firebase/auth';
+import { initAuth, googleSignIn, logout } from './services/firebaseAuth';
+import { WorkspaceResources, RoutingConfiguration } from './types';
+import AppsScriptViewer from './components/AppsScriptViewer';
+import FeedbackPipelineSetup from './components/FeedbackPipelineSetup';
+import PipelineSandbox from './components/PipelineSandbox';
+import mkLogo from './assets/images/mk_logo_1781902335896.jpg';
+import {
+  Sparkles,
+  Sheet,
+  FileCheck,
+  Mail,
+  GitFork,
+  ArrowRight,
+  Info,
+  Layers,
+  Code2,
+  Terminal,
+  Activity,
+  UserCheck,
+  Play
+} from 'lucide-react';
+
+const defaultRoutingConfig = (userEmail: string = ''): RoutingConfiguration => ({
+  supportEmail: userEmail || 'support@yourcompany.com',
+  googleReviewsUrl: 'https://g.page/r/CajrrF4R_V20EAI/review',
+  excellentSubject: 'Your feedback means the world to us, ${name}! 🌟',
+  excellentBody: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
+  <h2 style="color: #dc2626; margin-top: 0; font-size: 20px; font-weight: 700;">🌟 Outstanding, thank you \${name}!</h2>
+  <p>Hi <strong>\${name}</strong>,</p>
+  <p>Thank you so much for taking the time to share your feedback. We are absolutely thrilled to receive your <strong>5-Star rating!</strong> Your kind comments keep our team motivated:</p>
+  <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 12px 18px; margin: 18px 0; border-radius: 4px; color: #7f1d1d; font-style: italic;">
+    "\${comments}"
+  </div>
+  <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 25px 0;" />
+  <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">Warmest regards,<br/><strong>The M&K Customer Team</strong></p>
+</div>`,
+  goodSubject: 'We value your input, ${name}!  🌟',
+  goodBody: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
+  <h2 style="color: #dc2626; margin-top: 0; font-size: 20px; font-weight: 700;">🌟 Wonderful! Thank you, \${name}</h2>
+  <p>Hi <strong>\${name}</strong>,</p>
+  <p>We saw that you gave us a <strong>4-Star rating</strong>. Thank you so much for your support! We are constantly working to improve, and your comments are invaluable:</p>
+  <div style="background: #fffbeb; border-left: 4px solid #fbbf24; padding: 12px 18px; margin: 18px 0; border-radius: 4px; color: #78350f; font-style: italic;">
+    "\${comments}"
+  </div>
+  <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 25px 0;" />
+  <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">Warmest regards,<br/><strong>The M&K Customer Team</strong></p>
+</div>`,
+
+  neutralSubject: 'Regarding your recent experience, ${name}',
+  neutralBody: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
+  <h2 style="color: #111827; margin-top: 0; font-size: 20px; font-weight: 700;">We want to make this right</h2>
+  <p>Hi <strong>\${name}</strong>,</p>
+  <p>Thank you for submitting your <strong>3-Star rating</strong> feedback. We appreciate you reaching out, but we are sorry that we only delivered a satisfactory experience, rather than a perfect one.</p>
+  <p>We have captured your comments:</p>
+  <div style="background: #f3f4f6; border-left: 4px solid #374151; padding: 12px 18px; margin: 18px 0; border-radius: 4px; color: #111827; font-style: italic;">
+    "\${comments}"
+  </div>
+  <p>What can we do to make your next experience a perfect 5 stars? Simply respond directly to this email to start a conversation with a service supervisor.</p>
+  <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 25px 0;" />
+  <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">Warm regards,<br/><strong>Support Management</strong></p>
+</div>`,
+
+  poorSubject: '${name} We are concern regarding your recent experience',
+  poorBody: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff; border-top: 4px solid #dc2626;">
+  <h2 style="color: #dc2626; margin-top: 0; font-size: 20px; font-weight: 700;">A Sincere Apology</h2>
+  <p>Dear <strong>\${name}</strong>,</p>
+  <p>Thank you for taking the time to share your review. We were very distressed to see your <strong>\${rating} rating</strong> and read about your recent experience:</p>
+  <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 12px 18px; margin: 18px 0; border-radius: 4px; color: #991b1b; font-style: italic;">
+    "\${comments}"
+  </div>
+  <p>This falls completely short of our company core standards. We would love to make this right for you as soon as possible.</p>
+  <p>Can you please reply to this email, or let us know a convenient time to schedule a phone call? We would appreciate the opportunity to listen to your concerns and seek a resolution.</p>
+  <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 25px 0;" />
+  <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">With high concern,<br/><strong>Alex Carter</strong><br/>Global CX Director</p>
+</div>`
+});
+
+const isPublished = () => {
+  try {
+    const hostname = window.location.hostname;
+    return hostname.includes('-pre-') || (!hostname.includes('-dev-') && hostname !== 'localhost' && hostname !== '127.0.0.1');
+  } catch {
+    return false;
+  }
+};
+
+export default function App() {
+  const [forceLivePreview, setForceLivePreview] = useState(() => {
+    try {
+      return localStorage.getItem('g_force_live_preview') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const getPublishedState = () => {
+    if (forceLivePreview) return true;
+    return isPublished();
+  };
+
+  const [activeTab, setActiveTab] = useState<'blueprint' | 'script' | 'sandbox'>(() => {
+    try {
+      if (getPublishedState()) {
+        return 'sandbox';
+      }
+      return (localStorage.getItem('g_active_tab') as any) || 'blueprint';
+    } catch {
+      return 'blueprint';
+    }
+  });
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const [resources, setResources] = useState<WorkspaceResources>(() => {
+    try {
+      const saved = localStorage.getItem('g_resources');
+      const defaultResources = {
+        spreadsheetId: '1NFtZc8tbp3DCOT4JKze7b7np3iB8kjgBRsvXc4X5lQ4',
+        spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/1NFtZc8tbp3DCOT4JKze7b7np3iB8kjgBRsvXc4X5lQ4/edit?usp=sharing',
+        formId: null,
+        formUrl: null
+      };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...defaultResources,
+          ...parsed,
+          spreadsheetId: parsed.spreadsheetId || defaultResources.spreadsheetId,
+          spreadsheetUrl: parsed.spreadsheetUrl || defaultResources.spreadsheetUrl,
+        };
+      }
+      return defaultResources;
+    } catch {
+      return {
+        spreadsheetId: '1NFtZc8tbp3DCOT4JKze7b7np3iB8kjgBRsvXc4X5lQ4',
+        spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/1NFtZc8tbp3DCOT4JKze7b7np3iB8kjgBRsvXc4X5lQ4/edit?usp=sharing',
+        formId: null,
+        formUrl: null
+      };
+    }
+  });
+
+  const [routingConfig, setRoutingConfig] = useState<RoutingConfiguration>(() => {
+    try {
+      const saved = localStorage.getItem('g_routing_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (
+          !parsed.googleReviewsUrl || 
+          parsed.googleReviewsUrl.includes('maps.app.goo.gl') ||
+          parsed.goodSubject === 'We value your input, ${name}! Here is a little thank-you 🎁' ||
+          parsed.poorSubject === 'An apology and concern regarding your recent order' ||
+          parsed.poorSubject === '${name} We are concern regarding your recent order' ||
+          (parsed.excellentBody && parsed.excellentBody.includes('Submit Review')) ||
+          (parsed.excellentBody && parsed.excellentBody.includes('Share Your Review')) ||
+          (parsed.excellentBody && parsed.excellentBody.includes('sharing your review')) ||
+          (parsed.excellentBody && !parsed.excellentBody.includes('googleReviewsUrl')) || 
+          (parsed.excellentBody && (parsed.excellentBody.includes('Outstanding!') || parsed.excellentBody.includes('thank you,')))
+        ) {
+          const fresh = defaultRoutingConfig(parsed.supportEmail || '');
+          localStorage.setItem('g_routing_config', JSON.stringify(fresh));
+          return fresh;
+        }
+        return parsed;
+      }
+      return defaultRoutingConfig();
+    } catch {
+      return defaultRoutingConfig();
+    }
+  });
+
+  // Keep state synchronized with localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('g_active_tab', activeTab);
+    } catch (e) {
+      console.warn(e);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('g_resources', JSON.stringify(resources));
+    } catch (e) {
+      console.warn(e);
+    }
+  }, [resources]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('g_routing_config', JSON.stringify(routingConfig));
+    } catch (e) {
+      console.warn(e);
+    }
+  }, [routingConfig]);
+
+  useEffect(() => {
+    // Listen for Firebase auth state and parse cached tokens if user is already signed in
+    const unsubscribe = initAuth(
+      (currentUser, accessToken) => {
+        setUser(currentUser);
+        if (accessToken) {
+          setToken(accessToken);
+        }
+        // Prepopulate support email to the user's Google email automatically but preserve other configs
+        setRoutingConfig((prev) => {
+          const updated = { ...prev };
+          if (!updated.supportEmail || updated.supportEmail === 'support@yourcompany.com') {
+            updated.supportEmail = currentUser.email || 'support@yourcompany.com';
+          }
+          return updated;
+        });
+      },
+      () => {
+        setUser(null);
+        setToken(null);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    setIsLoggingIn(true);
+    setAuthError(null);
+    try {
+      const result = await googleSignIn();
+      if (result) {
+        setUser(result.user);
+        setToken(result.accessToken);
+        setRoutingConfig((prev) => {
+          const updated = { ...prev };
+          if (!updated.supportEmail || updated.supportEmail === 'support@yourcompany.com') {
+            updated.supportEmail = result.user.email || 'support@yourcompany.com';
+          }
+          return updated;
+        });
+      }
+    } catch (err: any) {
+      console.error('Google authorization error:', err);
+      if (err?.code === 'auth/popup-blocked' || err?.message?.includes('popup')) {
+        setAuthError('OAuth Popup blocked by browser policy. To resolve, click the "Open in New Tab" link below, or enable popups for this site in your browser search/address bar.');
+      } else {
+        setAuthError(err?.message || 'Failed to authenticate Google Account.');
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setUser(null);
+    setToken(null);
+    setAuthError(null);
+    setResources({
+      spreadsheetId: '1NFtZc8tbp3DCOT4JKze7b7np3iB8kjgBRsvXc4X5lQ4',
+      spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/1NFtZc8tbp3DCOT4JKze7b7np3iB8kjgBRsvXc4X5lQ4/edit?usp=sharing',
+      formId: null,
+      formUrl: null
+    });
+    try {
+      localStorage.removeItem('g_resources');
+      localStorage.removeItem('g_routing_config');
+      localStorage.removeItem('g_active_tab');
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  return (
+    <div className={`min-h-screen text-slate-800 font-sans tracking-normal selection:bg-slate-200 ${getPublishedState() ? 'bg-white' : 'bg-slate-100'}`}>
+      
+      {/* Decorative gradient top bar */}
+      {!getPublishedState() && <div className="h-1.5 w-full bg-gradient-to-r from-red-650 via-slate-700 to-black"></div>}
+
+      {/* Main Header Container */}
+      {getPublishedState() ? (
+        <header className="bg-black py-6 border-b border-neutral-900 shadow-sm">
+          <div className="max-w-2xl mx-auto px-4 flex flex-row items-center gap-5">
+            {/* MK Logo */}
+            <div className="shrink-0 select-none">
+              <img
+                src={mkLogo}
+                alt="M&K Logo"
+                className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-cover shadow-md bg-white border border-slate-800"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            
+            {/* Portal Card */}
+            <div className="flex-1 bg-slate-950 border border-slate-900 rounded-2xl p-5 w-full shadow-inner">
+              <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none text-left">
+                M&K Customer Feedback Portal
+              </h1>
+              <p className="text-sm text-white/95 mt-2 max-w-3xl leading-relaxed text-left font-medium">
+                We value your experience! Please share your rating and review below.
+              </p>
+            </div>
+          </div>
+        </header>
+      ) : (
+        /* Original Main Header Container with Simplified Agile Layout */
+        <header className="bg-slate-950 border-b border-slate-900 py-5 shadow-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              {/* Title, Consolidated Description & Minimal Process flow */}
+              <div>
+                {/* Horizontal Minimal Flow Indicators */}
+                <div className="flex items-center gap-3 sm:gap-4 mb-5 text-xs overflow-x-auto pb-2.5 max-w-full -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none shrink-0">
+                  <div className="flex flex-col items-center text-center shrink-0">
+                    {user && token ? (
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 relative">
+                          <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse"></span>
+                          <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-6 h-6">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                            <path fill="none" d="M0 0h48v48H0z"></path>
+                          </svg>
+                        </div>
+                        <span className="text-[10px] font-bold text-yellow-400 tracking-wide">Authorized</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleLogin}
+                        disabled={isLoggingIn}
+                        type="button"
+                        className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none focus:outline-hidden shrink-0"
+                        id="workflow-header-auth-btn"
+                        title="Connect Google Account"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-red-650 hover:bg-red-750 transition-colors flex items-center justify-center mb-1.5 relative shadow-xs">
+                          {isLoggingIn ? (
+                            <div className="w-4.5 h-4.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-6 h-6">
+                              <path fill="#ffffff" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                              <path fill="#ffffff" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                              <path fill="#ffffff" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                              <path fill="#ffffff" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                              <path fill="none" d="M0 0h48v48H0z"></path>
+                            </svg>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-300 group-hover:text-white transition-colors tracking-wide">Connect Google</span>
+                      </button>
+                    )}
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-red-500 stroke-[3px] shrink-0 -mt-4.5" />
+                  <div className="flex flex-col items-center text-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 text-red-500">
+                      <FileCheck className="w-5.5 h-5.5" />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-300 tracking-wide">Live App</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-red-500 stroke-[3px] shrink-0 -mt-4.5" />
+                  <div className="flex flex-col items-center text-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 text-red-500">
+                      <Sheet className="w-5.5 h-5.5" />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-300 tracking-wide">Sheet Feedback</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-red-500 stroke-[3px] shrink-0 -mt-4.5" />
+                  <div className="flex flex-col items-center text-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 text-red-500">
+                      <GitFork className="w-5.5 h-5.5" />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-300 tracking-wide">Routing Split</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-red-500 stroke-[3px] shrink-0 -mt-4.5" />
+                  <div className="flex flex-col items-center text-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 text-red-500">
+                      <Mail className="w-5.5 h-5.5" />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-300 tracking-wide">Automated Gmail</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-1">
+                  <img
+                    src={mkLogo}
+                    alt="M&K Logo"
+                    className="w-12 h-12 rounded-xl object-cover bg-white border border-slate-800 shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div>
+                    <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none">
+                      M&K Review Automator
+                    </h1>
+                    <p className="text-xs text-white mt-1.5 max-w-2xl leading-relaxed">
+                      Design automated workflows: Collect submissions via the Live App, log them in Google Sheets, and route optimized email notifications via Gmail Apps Script.
+                    </p>
+
+                    {/* Incorporated Live Preview Switcher */}
+                    {!isPublished() && (
+                      <div className="mt-3.5 flex items-center gap-3 text-white w-fit">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Live Preview:</span>
+                          <span className="text-xs font-bold text-slate-300">INACTIVE (Dev View)</span>
+                        </div>
+                        <div className="h-4 w-[1px] bg-slate-800"></div>
+                        <button
+                          onClick={() => {
+                            setForceLivePreview(true);
+                            try {
+                              localStorage.setItem('g_force_live_preview', 'true');
+                            } catch (e) {
+                              console.warn(e);
+                            }
+                            setActiveTab('sandbox');
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-205 active:scale-95 transition-all duration-150 cursor-pointer flex items-center gap-1 select-none"
+                        >
+                          Simulate Customer View 👁️
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* Main Dynamic Workflow Interface */}
+      <main className={`${getPublishedState() ? 'max-w-2xl' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 mt-8 pb-20`}>
+        
+        {/* Navigation Tabs */}
+        {!getPublishedState() && (
+          <div className="border-b border-slate-200 mb-8 overflow-hidden">
+            <div className="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-none w-full -mb-[1px] pb-1">
+              <button
+                onClick={() => setActiveTab('blueprint')}
+                className={`pb-3 px-3.5 text-sm font-bold border-b-2 flex items-center gap-2.5 transition-all cursor-pointer shrink-0 ${
+                  activeTab === 'blueprint'
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+                id="tab-blueprint"
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border transition-colors ${
+                  activeTab === 'blueprint'
+                    ? 'bg-red-600 text-white border-red-600'
+                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                }`}>
+                  1
+                </span>
+                <span>Sheet Feedback</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('script')}
+                className={`pb-3 px-3.5 text-sm font-bold border-b-2 flex items-center gap-2.5 transition-all cursor-pointer shrink-0 ${
+                  activeTab === 'script'
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+                id="tab-script"
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border transition-colors ${
+                  activeTab === 'script'
+                    ? 'bg-red-600 text-white border-red-600'
+                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                }`}>
+                  2
+                </span>
+                <span>Apps Script Generator</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('sandbox')}
+                className={`pb-3 px-3.5 text-sm font-bold border-b-2 flex items-center gap-2.5 transition-all cursor-pointer shrink-0 ${
+                  activeTab === 'sandbox'
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+                id="tab-sandbox"
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border transition-colors ${
+                  activeTab === 'sandbox'
+                    ? 'bg-red-600 text-white border-red-600'
+                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                }`}>
+                  3
+                </span>
+                <span>Input Simulator</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Tab Panes */}
+        <div>
+          {activeTab === 'blueprint' && (
+            <FeedbackPipelineSetup
+              user={user}
+              token={token}
+              resources={resources}
+              onResourcesChange={setResources}
+              onLogin={handleLogin}
+              onLogout={handleLogout}
+              isLoggingIn={isLoggingIn}
+              authError={authError}
+            />
+          )}
+
+          {activeTab === 'script' && (
+            <AppsScriptViewer
+              routingConfig={routingConfig}
+              onConfigChange={setRoutingConfig}
+            />
+          )}
+
+          {activeTab === 'sandbox' && (
+            <PipelineSandbox
+              token={token}
+              resources={resources}
+              routingConfig={routingConfig}
+              onLogin={handleLogin}
+              isLoggingIn={isLoggingIn}
+              user={user}
+              onLogout={handleLogout}
+              isLivePreview={getPublishedState()}
+            />
+          )}
+        </div>
+      </main>
+
+      {/* Return to Designer floating hub (Only visible when simulating Customer View in Dev mode) */}
+      {!isPublished() && forceLivePreview && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-slate-900/95 border border-slate-800 text-white rounded-full shadow-2xl backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-350">Live Preview:</span>
+            <span className="text-xs font-bold text-white">ACTIVE (Customer View)</span>
+          </div>
+          <div className="h-4 w-[1px] bg-slate-800"></div>
+          <button
+            onClick={() => {
+              setForceLivePreview(false);
+              try {
+                localStorage.setItem('g_force_live_preview', 'false');
+              } catch (e) {
+                console.warn(e);
+              }
+            }}
+            className="px-4 py-1.5 rounded-full text-[11.5px] font-extrabold bg-red-650 hover:bg-red-750 text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer flex items-center gap-1.5 select-none"
+          >
+            Return to Designer 🛠️
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
