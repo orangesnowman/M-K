@@ -95,14 +95,15 @@ function onFormSubmit(e) {
     }
   }
 
-  // 5. Send automated response email to the customer
+  // 5. Send automated response email to the customer with carbon copy to support
   try {
     MailApp.sendEmail({
       to: email,
+      cc: SUPPORT_EMAIL,
       subject: subject,
       htmlBody: body
     });
-    Logger.log("Automated customer follow-up email dispatched successfully to: " + email);
+    Logger.log("Automated customer follow-up email dispatched successfully to: " + email + " (CC: " + SUPPORT_EMAIL + ")");
   } catch (error) {
     Logger.log("Error dispatching external email: " + error.toString());
   }

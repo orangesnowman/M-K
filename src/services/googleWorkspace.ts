@@ -226,7 +226,8 @@ export async function sendGmailEmail(
   token: string,
   to: string,
   subject: string,
-  htmlBody: string
+  htmlBody: string,
+  cc?: string
 ): Promise<boolean> {
   const cleanTo = to.trim();
   const cleanSubject = subject.trim();
@@ -246,14 +247,23 @@ export async function sendGmailEmail(
     ? `=?utf-8?B?${safeBase64(cleanSubject)}?=`
     : cleanSubject;
 
-  const headers = [
-    `To: ${cleanTo}`,
+  const headersList = [
+    `To: ${cleanTo}`
+  ];
+
+  if (cc && cc.trim()) {
+    headersList.push(`Cc: ${cc.trim()}`);
+  }
+
+  headersList.push(
     `Subject: ${encodedSubject}`,
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=utf-8',
     '',
     htmlBody
-  ].join('\r\n');
+  );
+
+  const headers = headersList.join('\r\n');
 
   const rawMessage = base64urlEncode(headers);
 
