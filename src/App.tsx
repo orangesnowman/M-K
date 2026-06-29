@@ -33,6 +33,7 @@ const defaultRoutingConfig = (userEmail: string = ''): RoutingConfiguration => (
   <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 12px 18px; margin: 18px 0; border-radius: 4px; color: #7f1d1d; font-style: italic;">
     "\${comments}"
   </div>
+  <p>Would you mind sharing this feedback as a public Google Review to help others find us? It would mean the world to our team: <a href="\${googleReviewsUrl}" target="_blank" style="color: #dc2626; font-weight: bold; text-decoration: underline;">Share on Google</a></p>
   <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 25px 0;" />
   <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">Warmest regards,<br/><strong>The M&K Customer Team</strong></p>
 </div>`,
@@ -44,6 +45,7 @@ const defaultRoutingConfig = (userEmail: string = ''): RoutingConfiguration => (
   <div style="background: #fffbeb; border-left: 4px solid #fbbf24; padding: 12px 18px; margin: 18px 0; border-radius: 4px; color: #78350f; font-style: italic;">
     "\${comments}"
   </div>
+  <p>If you have a quick moment, would you mind sharing your feedback as a Google Review? It helps us tremendously: <a href="\${googleReviewsUrl}" target="_blank" style="color: #dc2626; font-weight: bold; text-decoration: underline;">Share on Google</a></p>
   <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 25px 0;" />
   <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">Warmest regards,<br/><strong>The M&K Customer Team</strong></p>
 </div>`,

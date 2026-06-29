@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 
   // Middlewares to parse JSON content
   app.use(express.json());
