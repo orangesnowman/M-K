@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -31,6 +31,28 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  // Listen for redirect results on page load
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result) {
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          cachedAccessToken = credential.accessToken;
+          try {
+            localStorage.setItem('g_access_token', cachedAccessToken);
+          } catch (e) {
+            console.warn('Failed to write access token to localStorage:', e);
+          }
+          if (auth.currentUser && onAuthSuccess) {
+            onAuthSuccess(auth.currentUser, cachedAccessToken);
+          }
+        }
+      }
+    })
+    .catch((error) => {
+      console.error('Redirect sign in error:', error);
+    });
+
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       if (!cachedAccessToken) {
@@ -63,19 +85,8 @@ export const initAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
-    }
-
-    cachedAccessToken = credential.accessToken;
-    try {
-      localStorage.setItem('g_access_token', cachedAccessToken);
-    } catch (e) {
-      console.warn('Failed to write access token to localStorage:', e);
-    }
-    return { user: result.user, accessToken: cachedAccessToken };
+    await signInWithRedirect(auth, provider);
+    return null;
   } catch (error: any) {
     console.error('Sign in error:', error);
     throw error;
