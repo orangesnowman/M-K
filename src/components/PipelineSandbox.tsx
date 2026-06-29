@@ -132,6 +132,7 @@ export default function PipelineSandbox({
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const [autoSubmitLogs, setAutoSubmitLogs] = useState<string[]>([]);
@@ -218,6 +219,7 @@ export default function PipelineSandbox({
           ...prev,
           comments: data.suggestion,
         }));
+        setValidationError(null);
         
         // The text is placed into the form field, and the user can copy/submit it with a clear single click
         setShowCopiedNotification(false);
@@ -374,6 +376,12 @@ export default function PipelineSandbox({
   };
 
   const handleSubmitClick = () => {
+    if (!formData.comments || !formData.comments.trim()) {
+      setValidationError("Please share your feedback or experience in the comments section before submitting.");
+      return;
+    }
+    setValidationError(null);
+
     if (isCurrentlyPublished) {
       if (formData.rating >= 4) {
         if (formData.comments) {
@@ -578,6 +586,7 @@ export default function PipelineSandbox({
                       onClick={() => {
                         const nextComments = star < 4 ? '' : formData.comments;
                         setFormData({ ...formData, rating: star, comments: nextComments });
+                        setValidationError(null);
                       }}
                       className="p-1 transition-transform active:scale-95 cursor-pointer"
                       id={`star-${star}-btn`}
@@ -600,12 +609,26 @@ export default function PipelineSandbox({
                 </div>
                 <textarea
                   value={formData.comments}
-                  onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, comments: e.target.value });
+                    if (validationError) {
+                      setValidationError(null);
+                    }
+                  }}
                   rows={3}
-                  className="w-full text-sm px-4 py-2.5 border border-slate-400 rounded-xl focus:ring-2 focus:ring-red-100 font-medium text-slate-800"
+                  className={`w-full text-sm px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-red-100 font-medium text-slate-800 ${
+                    validationError ? 'border-red-500 focus:ring-red-500 bg-red-50/20' : 'border-slate-400'
+                  }`}
                   id="sim-comments-input"
                   placeholder="Share details here..."
                 ></textarea>
+
+                {validationError && (
+                  <p className="text-red-600 text-xs font-semibold mt-1.5 flex items-center gap-1.5" id="comments-validation-error">
+                    <span className="shrink-0">⚠️</span>
+                    <span>{validationError}</span>
+                  </p>
+                )}
 
                 {formData.rating >= 4 && (
                   <div className="flex flex-col items-start gap-1.5 mt-3">

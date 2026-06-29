@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+  const PORT = 3000;
 
   // Middlewares to parse JSON content
   app.use(express.json());
@@ -84,28 +84,36 @@ async function startServer() {
     const targetRating = rating || 5;
     const inputComments = currentComments ? currentComments.trim() : "";
 
-    // Hardcoded high-quality offline fallbacks aligning perfectly with M&K content requirements
-    const offlineFallbacks = [
-      "M&K Used Auto Parts is absolute gold: they not only located a guaranteed, premium-quality used transmission for my car from their massive inventory of new and used parts, but their ASE-certified mechanics handled the tire installation and a perfect wheel alignment on-site. To top it off, I sold them my old junk vehicle through their seamless buy-back process, receiving an incredibly competitive cash offer, free towing, and zero hassle with the legal paperwork!",
-      "I cannot recommend M&K Used Auto Parts enough! They have an unparalleled selection of premium new and used parts under strict guarantee for domestic and foreign vehicles, and their full-service shop with ASE-certified technicians did a flawless job installing my tires and performing a complex wheel alignment. Plus, their team made selling my unwanted junk car incredibly easy with convenient towing, high cash payout, and all legal paperwork fully managed.",
-      "The service at M&K Used Auto Parts is truly top-tier; they provided an excellent guaranteed OEM engine for my truck and had their ASE-certified technician team handle the mechanical overhaul and tire installation flawlessly. They also offered me top cash with convenient towing and handled all legal paperwork to buy my old junk car, making M&K my absolute go-to for quality auto parts, expert mechanical services, and selling unwanted vehicles."
-    ];
-
     const getOfflineImprovedText = (text: string): string => {
-      if (!text) {
-        return offlineFallbacks[Math.floor(Math.random() * offlineFallbacks.length)];
+      const cleanComments = text ? text.replace(/["']/g, "").trim() : "";
+      if (!cleanComments) {
+        return "Great experience with M&K Used Auto Parts. Their team provided fast auto repair and quality auto parts at very competitive pricing.";
       }
       
-      // Let's blend user comment with M&K services
-      const cleanComments = text.replace(/["']/g, "");
-      return `${cleanComments}. For our vehicle, M&K Used Auto Parts was perfect—their ASE-certified technicians completed an expert wheel alignment and tire installation on-site. We also got a premium guaranteed used part from their huge domestic and foreign inventory, and easily sold them our old junk car for competitive cash with convenient towing and all legal paperwork handled.`;
+      const lower = cleanComments.toLowerCase();
+      
+      // Check specific service keywords to stay strictly on subject
+      if (lower.includes("sell") || lower.includes("junk") || lower.includes("scrap") || lower.includes("old car") || lower.includes("tow")) {
+        return `${cleanComments}. We got competitive pricing for our junk car removal with fast, hassle-free towing from M&K.`;
+      }
+      
+      if (lower.includes("tire") || lower.includes("align") || lower.includes("wheel") || lower.includes("mechanic") || lower.includes("brake") || lower.includes("oil")) {
+        return `${cleanComments}. The shop provided quick tire installation and dependable auto repair service.`;
+      }
+      
+      if (lower.includes("battery") || lower.includes("part") || lower.includes("engine") || lower.includes("transmission") || lower.includes("alternator") || lower.includes("mirror") || lower.includes("light") || lower.includes("door")) {
+        return `${cleanComments}. M&K supplied exactly the quality used auto parts we needed at a great price.`;
+      }
+      
+      // Default concise fallback staying close to subject
+      return `${cleanComments}. M&K Used Auto Parts provided excellent customer service and reliable auto repair.`;
     };
 
     try {
       const apiKey = process.env.GEMINI_API_KEY;
 
       if (!apiKey) {
-        console.warn('[GEMINI WARNING] GEMINI_API_KEY is missing. Using pre-optimized M&K backup suggestions.');
+        console.warn('[GEMINI WARNING] GEMINI_API_KEY is missing. Using contextual M&K backup suggestions.');
         const backup = getOfflineImprovedText(inputComments);
         return res.json({ suggestion: backup, isOfflineFallback: true });
       }
@@ -120,23 +128,18 @@ async function startServer() {
         }
       });
 
-      const prompt = `You are an expert AI review assistant for M&K Used Auto Parts. Your goal is to automatically enhance customer feedback based on specific business keywords, actual services, and content strategy.
+      const prompt = `When enriching customer reviews for M&K Used Auto Parts, keep them to 1-3 sentences. Identify the relevant service or product mentioned in the original feedback. Incorporate keywords naturally—such as 'used auto parts,' 'junk car removal,' 'tire installation,' or 'auto repair.' 
 
-Original customer draft input comments: "${inputComments || "(No comments provided)"}"
+For example, if someone mentions selling a car, enrich it by adding that they got competitive pricing for their junk car. If the client got a battery replaced, stay strictly close to the subject—you don't have to mention ASE certified mechanics or junk cars, it is just a battery. Stay strictly close to the subject and don't get too imaginative. Keep it concise, relevant, and tied directly to the key service the customer actually used.
 
-Your task is to either IMPROVE their feedback or DRAFT a natural, high-performance customer review incorporating M&K's strategic business offerings.
-
-You MUST perform the following actions:
-1. Clarify Auto Parts: Enhance the review by mentioning M&K's wide selection of premium new and used parts for domestic and foreign vehicles. Emphasize premium quality and guaranteed parts.
-2. Emphasize Junk Car Purchases: Incorporate M&K's seamless process for selling junk or unwanted cars, highlighting competitive cash offers, hassle-free legal paperwork, and convenient towing.
-3. Highlight Mechanical Services: Showcase comprehensive service capabilities by mentioning ASE-certified technicians and services like tire installations, wheel alignments, and major mechanical overhauls.
+Original Customer Draft Input: "${inputComments || "Great auto repair and used auto parts service."}"
 
 CRITICAL CONSTRAINTS:
-- Keep the first-person perspective ("I", "my", "we").
-- Do NOT mention ratings, star counts, or phrases like "5 stars", "five stars", or "review" in the text of the review. It must sound like an authentic personal customer story.
-- Keep the output extremely natural and organic. Maintain any specific mentions of customer experiences if already provided in their draft comments, but enrich it with the three strategic business areas above.
-- Write a cohesive, enthusiastic paragraph (around 2 to 4 sentences).
-- Do NOT include quotes, bullet points, introduction text, or extra commentary. Return ONLY the enhanced review text itself.`;
+- Keep the exact first-person perspective ("I", "my", "we").
+- Length MUST be 1 to 3 concise sentences.
+- Do NOT mention star ratings or phrases like "5 stars" in the review text.
+- Do NOT invent or hallucinate unrelated services (e.g., do not talk about junk cars or engine overhauls if they only bought a battery, tire, or simple part).
+- Return ONLY the final polished review text without quotes, markdown, bullet points, or introductory commentary.`;
 
       // Array of allowed, non-deprecated modern models to try sequentially
       const modelsToTry = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
@@ -150,8 +153,8 @@ CRITICAL CONSTRAINTS:
             model: model,
             contents: prompt,
             config: {
-              systemInstruction: 'You are a warm, helpful, and strategic AI review assistant that crafts highly authentic, natural reviews incorporating specific core offerings of M&K Used Auto Parts.',
-              temperature: 0.8,
+              systemInstruction: 'You are a concise AI review assistant. You enrich customer reviews in 1-3 sentences by staying strictly close to the subject mentioned, naturally incorporating relevant keywords without inventing unrelated services.',
+              temperature: 0.7,
             }
           });
           if (response.text) {
@@ -176,7 +179,7 @@ CRITICAL CONSTRAINTS:
         return res.json({ suggestion: text });
       }
 
-      // If all models failed, fallback to top-tier offline template
+      // If all models failed, fallback to contextual offline template
       console.warn('[GEMINI API] All Gemini models failed or returned empty content. Proceeding with offline M&K template.', lastError);
       const selectedFallback = getOfflineImprovedText(inputComments);
       return res.json({ suggestion: selectedFallback, isOfflineFallback: true });
