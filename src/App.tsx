@@ -391,7 +391,7 @@ export default function App() {
                   />
                   <div>
                     <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none">
-                      M&K Review Automator
+                      MandK App
                     </h1>
                     <p className="text-xs text-white mt-1.5 max-w-2xl leading-relaxed">
                       Design automated workflows: Collect submissions via the Live App, log them in Google Sheets, and route optimized email notifications via Gmail Apps Script.
@@ -529,6 +529,7 @@ export default function App() {
               user={user}
               onLogout={handleLogout}
               isLivePreview={getPublishedState()}
+              authError={authError}
             />
           )}
         </div>

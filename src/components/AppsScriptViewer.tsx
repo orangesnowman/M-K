@@ -15,7 +15,7 @@ export default function AppsScriptViewer({ routingConfig, onConfigChange }: Apps
  * Google Apps Script to automate customer feedback email routing.
  * Attached to the Google Sheet receiving Google Form submissions.
  *
- * Designed by M&K Review Automator Workspace Expert.
+ * Designed by MandK App Workspace Expert.
  * 
  * @param {Object} e - The form submission trigger event object.
  */

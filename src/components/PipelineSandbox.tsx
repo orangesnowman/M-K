@@ -66,6 +66,7 @@ interface PipelineSandboxProps {
   user?: any;
   onLogout?: () => void;
   isLivePreview?: boolean;
+  authError?: string | null;
 }
 
 export default function PipelineSandbox({ 
@@ -76,7 +77,8 @@ export default function PipelineSandbox({
   isLoggingIn,
   user,
   onLogout,
-  isLivePreview = false
+  isLivePreview = false,
+  authError
 }: PipelineSandboxProps) {
   const isCurrentlyPublished = isLivePreview || isPublished();
 
@@ -522,62 +524,65 @@ export default function PipelineSandbox({
               )}
 
               <div className="space-y-4">
-              {!isCurrentlyPublished && (
-                user ? (
-                  /* Google reviewer identity badge card */
-                  <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-3 shadow-xs" id="review-identity-card">
-                    <div className="flex items-center gap-3">
-                      {user.photoURL ? (
-                        <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full border border-slate-200" referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-slate-250 flex items-center justify-center font-bold text-slate-700 text-sm">
-                          {(user.displayName || user.email || 'G').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="text-left">
-                        <p className="text-xs font-bold text-slate-900 leading-none">Reviewing as {user.displayName || 'Google User'}</p>
-                        <p className="text-[10.5px] font-medium text-slate-400 mt-1">{user.email}</p>
+              {user ? (
+                /* Google reviewer identity badge card */
+                <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-3 shadow-xs" id="review-identity-card">
+                  <div className="flex items-center gap-3">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full border border-slate-200" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-slate-250 flex items-center justify-center font-bold text-slate-700 text-sm">
+                        {(user.displayName || user.email || 'G').charAt(0).toUpperCase()}
                       </div>
+                    )}
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-slate-900 leading-none">Reviewing as {user.displayName || 'Google User'}</p>
+                      <p className="text-[10.5px] font-medium text-slate-400 mt-1">{user.email}</p>
                     </div>
-                    {onLogout && (
+                  </div>
+                  {onLogout && (
+                    <button
+                      type="button"
+                      onClick={onLogout}
+                      className="text-[10px] font-bold text-red-650 hover:text-red-750 hover:underline transition-colors cursor-pointer"
+                      id="live-form-disconnect-btn"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+              ) : (
+                /* Only Connect with Google option styled as requested */
+                <>
+                  {onLogin && (
+                    <div id="live-form-google-signin-wrapper">
                       <button
                         type="button"
-                        onClick={onLogout}
-                        className="text-[10px] font-bold text-red-650 hover:text-red-750 hover:underline transition-colors cursor-pointer"
-                        id="live-form-disconnect-btn"
+                        onClick={onLogin}
+                        disabled={isLoggingIn}
+                        className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-yellow-400 hover:bg-yellow-500 border border-transparent text-slate-900 rounded-xl text-xs font-bold shadow-2xs transition-all duration-150 cursor-pointer active:scale-98"
+                        id="live-form-google-signin-btn"
                       >
-                        Disconnect
+                        {isLoggingIn ? (
+                          <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4.5 h-4.5 shrink-0">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                          </svg>
+                        )}
+                        <span>Connect with Google</span>
                       </button>
-                    )}
-                  </div>
-                ) : (
-                  /* Only Connect with Google option styled as requested */
-                  <>
-                    {onLogin && (
-                      <div id="live-form-google-signin-wrapper">
-                        <button
-                          type="button"
-                          onClick={onLogin}
-                          disabled={isLoggingIn}
-                          className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-yellow-400 hover:bg-yellow-500 border border-transparent text-slate-900 rounded-xl text-xs font-bold shadow-2xs transition-all duration-150 cursor-pointer active:scale-98"
-                          id="live-form-google-signin-btn"
-                        >
-                          {isLoggingIn ? (
-                            <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4.5 h-4.5 shrink-0">
-                              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-                              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-                            </svg>
-                          )}
-                          <span>Connect with Google</span>
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )
+                    </div>
+                  )}
+                  {authError && (
+                    <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs font-semibold rounded-xl leading-relaxed mt-2" id="sandbox-auth-error">
+                      ⚠️ {authError}
+                    </div>
+                  )}
+                </>
               )}
 
               <div>
@@ -766,7 +771,7 @@ export default function PipelineSandbox({
           </div>
           )}
 
-          {!isCurrentlyPublished && feedbackError && (
+          {feedbackError && (
             <div className="p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl text-xs space-y-2">
               <div className="flex items-center gap-2">
                 <AlertOctagon className="w-4.5 h-4.5 shrink-0 text-red-600" />
