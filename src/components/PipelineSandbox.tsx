@@ -665,7 +665,7 @@ export default function PipelineSandbox({
                   </div>
                 )}
 
-                {!isCurrentlyPublished && formData.rating >= 4 ? (
+                {formData.rating >= 4 ? (
                   formData.comments && (
                     <div className="mt-3 p-4 bg-red-50/45 border-2 border-red-200 rounded-2xl space-y-3" id="high-rating-route-callout">
                       <div 
@@ -710,7 +710,7 @@ export default function PipelineSandbox({
                     </div>
                   )
                 ) : (
-                  !isCurrentlyPublished && formData.comments && (
+                  formData.comments && (
                     <div className={`mt-2 p-3 rounded-xl border transition-all duration-300 text-xs flex flex-col gap-2 ${
                       showCopiedNotification 
                         ? 'bg-emerald-50 border-emerald-100 text-emerald-800' 
