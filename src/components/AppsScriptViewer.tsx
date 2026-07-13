@@ -72,15 +72,12 @@ function onFormSubmit(e) {
   } else if (ratingNumber === 4) {
     subject = \`${routingConfig.goodSubject.replace(/`/g, '\\`').replace(/\${name}/g, '` + name + `')}\`;
     body = \`${routingConfig.goodBody.replace(/`/g, '\\`').replace(/\${name}/g, '` + name + `').replace(/\${comments}/g, '` + (comments || "(No suggestions shared)") + `').replace(/\${googleReviewsUrl}/g, routingConfig.googleReviewsUrl || 'https://g.page/r/CajrrF4R_V20EAI/review')}\`;
-  } else if (ratingNumber === 3) {
-    subject = \`${routingConfig.neutralSubject.replace(/`/g, '\\`').replace(/\${name}/g, '` + name + `')}\`;
-    body = \`${routingConfig.neutralBody.replace(/`/g, '\\`').replace(/\${name}/g, '` + name + `').replace(/\${comments}/g, '` + (comments || "(No comments provided)") + `')}\`;
   } else {
-    // 1-2 Stars (Poor Feedback Escalation)
+    // 1-3 Stars (Poor Feedback Escalation)
     subject = \`${routingConfig.poorSubject.replace(/`/g, '\\`').replace(/\${name}/g, '` + name + `')}\`;
     body = \`${routingConfig.poorBody.replace(/`/g, '\\`').replace(/\${name}/g, '` + name + `').replace(/\${comments}/g, '` + (comments || "(No feedback recorded)") + `').replace(/\${rating}/g, '` + rating + `')}\`;
 
-    // Alert support/management team urgently about poor rating
+    // Alert support/management team urgently about poor rating (1-3 Stars)
     try {
       GmailApp.sendEmail(
         SUPPORT_EMAIL,
@@ -203,7 +200,7 @@ function onFormSubmit(e) {
 
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                Google Reviews Directory URL (For 4 & 5-Star Reviews)
+                Google Reviews Directory URL (For Public Reviews)
               </label>
               <input
                 type="url"
@@ -214,8 +211,108 @@ function onFormSubmit(e) {
                 id="google-reviews-url-input"
               />
               <span className="text-[10px] text-slate-400 block mt-1">
-                Both 4 & 5-star ratings route voters directly to write feedback here. Default link is set as a starting point.
+                Ratings above the threshold route voters directly to write feedback here. Default link is set as a starting point.
               </span>
+            </div>
+
+            {/* Threshold Configuration */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Direct Feedback Star Threshold
+              </label>
+              <select
+                value={routingConfig.starThreshold}
+                onChange={(e) => onConfigChange({ ...routingConfig, starThreshold: parseInt(e.target.value, 10) })}
+                className="w-full text-sm px-4 py-2.5 border border-slate-400 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-100 focus:border-red-500 transition-all font-sans bg-white"
+                id="star-threshold-select"
+              >
+                <option value="1">1 Star or fewer</option>
+                <option value="2">2 Stars or fewer</option>
+                <option value="3">3 Stars or fewer (Default)</option>
+                <option value="4">4 Stars or fewer</option>
+                <option value="5">5 Stars or fewer</option>
+              </select>
+              <span className="text-[10px] text-slate-400 block mt-1">
+                Ratings equal to or below this threshold are treated as direct feedback, bypass public review options, and get routed to management.
+              </span>
+            </div>
+
+            {/* Additional Review Platforms Configuration */}
+            <div className="space-y-4 pt-2">
+              <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Additional Review Platforms</h4>
+              <p className="text-[11px] text-slate-400 -mt-2">Enable other platforms for sequential sharing.</p>
+              
+              {/* Facebook */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={routingConfig.facebookEnabled}
+                      onChange={(e) => onConfigChange({ ...routingConfig, facebookEnabled: e.target.checked })}
+                      className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span>Facebook Review Link</span>
+                  </label>
+                </div>
+                {routingConfig.facebookEnabled && (
+                  <input
+                    type="url"
+                    value={routingConfig.facebookUrl || ''}
+                    onChange={(e) => onConfigChange({ ...routingConfig, facebookUrl: e.target.value })}
+                    placeholder="e.g. https://www.facebook.com/..."
+                    className="w-full text-xs px-3 py-2 border border-slate-400 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-red-100 font-mono"
+                  />
+                )}
+              </div>
+
+              {/* Yelp */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={routingConfig.yelpEnabled}
+                      onChange={(e) => onConfigChange({ ...routingConfig, yelpEnabled: e.target.checked })}
+                      className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span>Yelp Review Link</span>
+                  </label>
+                </div>
+                {routingConfig.yelpEnabled && (
+                  <input
+                    type="url"
+                    value={routingConfig.yelpUrl || ''}
+                    onChange={(e) => onConfigChange({ ...routingConfig, yelpUrl: e.target.value })}
+                    placeholder="e.g. https://www.yelp.com/biz/..."
+                    className="w-full text-xs px-3 py-2 border border-slate-400 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-red-100 font-mono"
+                  />
+                )}
+              </div>
+
+              {/* BBB */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={routingConfig.bbbEnabled}
+                      onChange={(e) => onConfigChange({ ...routingConfig, bbbEnabled: e.target.checked })}
+                      className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span>BBB Review Link</span>
+                  </label>
+                </div>
+                {routingConfig.bbbEnabled && (
+                  <input
+                    type="url"
+                    value={routingConfig.bbbUrl || ''}
+                    onChange={(e) => onConfigChange({ ...routingConfig, bbbUrl: e.target.value })}
+                    placeholder="e.g. https://www.bbb.org/..."
+                    className="w-full text-xs px-3 py-2 border border-slate-400 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-red-100 font-mono"
+                  />
+                )}
+              </div>
             </div>
 
             <hr className="border-slate-100 my-4" />
@@ -246,18 +343,7 @@ function onFormSubmit(e) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Neutral (3 Stars)</label>
-                <input
-                  type="text"
-                  value={routingConfig.neutralSubject}
-                  onChange={(e) => handleInputChange('neutralSubject', e.target.value)}
-                  className="w-full text-xs px-3.5 py-2 border border-slate-400 rounded-lg focus:ring-2 focus:ring-red-100 font-medium"
-                  id="neutral-subject-input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Poor (1-2 Stars)</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Poor (1-3 Stars)</label>
                 <input
                   type="text"
                   value={routingConfig.poorSubject}

@@ -46,15 +46,23 @@ export default function FeedbackPipelineSetup({
 
   const formatExceptionMessage = (err: any) => {
     const msg = String(err.message || err);
+    const lower = msg.toLowerCase();
     if (
-      msg.toLowerCase().includes('authentication') ||
-      msg.toLowerCase().includes('credential') ||
-      msg.toLowerCase().includes('oauth') ||
-      msg.toLowerCase().includes('unauthorized') ||
-      msg.toLowerCase().includes('token') ||
+      lower.includes('authentication') ||
+      lower.includes('credential') ||
+      lower.includes('oauth') ||
+      lower.includes('unauthorized') ||
+      lower.includes('token') ||
       msg.includes('401')
     ) {
       return `${msg}. 💡 Help: Google Authorization is expired, missing, or needs fresh permissions! Click "Re-authorize Google" or "Connect Google Account" at the very top right of the page to refresh your token and accept permissions.`;
+    }
+    if (
+      lower.includes('403') ||
+      lower.includes('permission') ||
+      lower.includes('forbidden')
+    ) {
+      return `${msg}. 💡 Help: You do not have edit permissions for this spreadsheet. If you are using the default template sheet, please click the "Deploy Workflow" or "Re-authorize & Setup" button on this tab to automatically provision a brand-new personal spreadsheet inside your own Google Drive!`;
     }
     return msg;
   };

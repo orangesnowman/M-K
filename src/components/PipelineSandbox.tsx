@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { FormConfig, RoutingConfiguration, WorkspaceResources } from '../types';
 import { sendGmailEmail, appendFeedbackToSheet } from '../services/googleWorkspace';
+import mkLogo from '../assets/images/mk_logo_1781902335896.jpg';
+import pixelRobotHeart from '../assets/images/pixel_robot_heart_1783882654344.jpg';
 import {
   Inbox,
   Play,
   Mail,
   Table,
   CheckCircle,
+  Check,
   AlertOctagon,
   ArrowRight,
   TrendingDown,
@@ -16,7 +19,9 @@ import {
   Sparkles,
   Info,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Facebook,
+  Share2
 } from 'lucide-react';
 
 // Dynamic suggested comments based on numeric star ratings to inspire users and test different branch routes
@@ -139,6 +144,8 @@ export default function PipelineSandbox({
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const [autoSubmitLogs, setAutoSubmitLogs] = useState<string[]>([]);
   const [hasSubmittedAuto, setHasSubmittedAuto] = useState(false);
+  const [visitedPlatforms, setVisitedPlatforms] = useState<string[]>([]);
+  const [hasFinishedSharing, setHasFinishedSharing] = useState(false);
 
   // Custom modal states to avoid iframe-hostile native dialog blocks
   const [showSheetConfirm, setShowSheetConfirm] = useState(false);
@@ -149,6 +156,67 @@ export default function PipelineSandbox({
 
   const [isGeneratingSeo, setIsGeneratingSeo] = useState(false);
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
+  const [showAiCopiedBanner, setShowAiCopiedBanner] = useState(false);
+
+  const [fixTogether, setFixTogether] = useState(true);
+
+  // Enabled platforms based on settings
+  const enabledPlatforms = useMemo(() => {
+    const list: { name: string; url: string; color: string; hoverColor: string }[] = [];
+    if (routingConfig.facebookEnabled && routingConfig.facebookUrl) {
+      list.push({ 
+        name: 'Facebook', 
+        url: routingConfig.facebookUrl, 
+        color: 'bg-[#1877f2]', 
+        hoverColor: 'hover:bg-[#115bc5]' 
+      });
+    }
+    if (routingConfig.yelpEnabled && routingConfig.yelpUrl) {
+      list.push({ 
+        name: 'Yelp', 
+        url: routingConfig.yelpUrl, 
+        color: 'bg-[#d32323]', 
+        hoverColor: 'hover:bg-[#b01d1d]' 
+      });
+    }
+    if (routingConfig.bbbEnabled && routingConfig.bbbUrl) {
+      list.push({ 
+        name: 'BBB', 
+        url: routingConfig.bbbUrl, 
+        color: 'bg-[#005187]', 
+        hoverColor: 'hover:bg-[#003d66]' 
+      });
+    }
+    return list;
+  }, [routingConfig]);
+
+  // Remaining platforms to share on
+  const remainingPlatforms = useMemo(() => {
+    return enabledPlatforms.filter(p => !visitedPlatforms.includes(p.name));
+  }, [enabledPlatforms, visitedPlatforms]);
+
+  const handleSharePlatformClick = (platform: { name: string; url: string }) => {
+    try {
+      const win = window.open(platform.url, '_blank');
+      if (win) {
+        win.focus();
+      }
+    } catch (e) {
+      console.warn("Popup blocked by browser:", e);
+    }
+    setVisitedPlatforms(prev => [...prev, platform.name]);
+  };
+
+  const getEffectiveComments = () => {
+    const threshold = routingConfig.starThreshold ?? 3;
+    if (formData.rating <= threshold && fixTogether) {
+      if (formData.comments && formData.comments.trim()) {
+        return `${formData.comments.trim()}\n\nLet's try to fix this together`;
+      }
+      return "";
+    }
+    return formData.comments;
+  };
 
   const copyTextToClipboard = (text: string) => {
     try {
@@ -182,15 +250,23 @@ export default function PipelineSandbox({
 
   const formatExceptionMessage = (err: any) => {
     const msg = String(err.message || err);
+    const lower = msg.toLowerCase();
     if (
-      msg.toLowerCase().includes('authentication') ||
-      msg.toLowerCase().includes('credential') ||
-      msg.toLowerCase().includes('oauth') ||
-      msg.toLowerCase().includes('unauthorized') ||
-      msg.toLowerCase().includes('token') ||
+      lower.includes('authentication') ||
+      lower.includes('credential') ||
+      lower.includes('oauth') ||
+      lower.includes('unauthorized') ||
+      lower.includes('token') ||
       msg.includes('401')
     ) {
       return `${msg}. 💡 Help: Google Authorization is expired, missing, or needs fresh permissions! Click "Re-authorize Google" or "Connect Google Account" to refresh your token and accept permissions.`;
+    }
+    if (
+      lower.includes('403') ||
+      lower.includes('permission') ||
+      lower.includes('forbidden')
+    ) {
+      return `${msg}. 💡 Help: You do not have edit permissions for this spreadsheet. If you are using the default template sheet, please click on the "Sheet Feedback" tab and click "Deploy Workflow" or "Re-authorize & Setup" to automatically provision a brand-new personal spreadsheet inside your own Google Drive!`;
     }
     return msg;
   };
@@ -225,6 +301,10 @@ export default function PipelineSandbox({
         
         // The text is placed into the form field, and the user can copy/submit it with a clear single click
         setShowCopiedNotification(false);
+
+        // Copy the newly generated AI suggestion directly to clipboard & display under "Click again..."
+        copyTextToClipboard(data.suggestion);
+        setShowAiCopiedBanner(true);
       }
     } catch (err: any) {
       console.error(err);
@@ -239,7 +319,7 @@ export default function PipelineSandbox({
     const firstName = formData.name ? formData.name.trim().split(/\s+/)[0] : '';
     return template
       .replace(/\${name}/g, firstName)
-      .replace(/\${comments}/g, formData.comments || '(No comments provided)')
+      .replace(/\${comments}/g, getEffectiveComments() || '(No comments provided)')
       .replace(/\${rating}/g, `${rating} Star${rating > 1 ? 's' : ''}`)
       .replace(/\${googleReviewsUrl}/g, routingConfig.googleReviewsUrl || 'https://g.page/r/CajrrF4R_V20EAI/review');
   };
@@ -250,20 +330,25 @@ export default function PipelineSandbox({
     let route = '';
     let alertSupport = false;
 
-    if (formData.rating === 5) {
-      route = 'Excellent (5-Star Branch)';
-      subject = parseBody(routingConfig.excellentSubject, 5);
-      body = parseBody(routingConfig.excellentBody, 5);
-    } else if (formData.rating === 4) {
-      route = 'Very Good (4-Star Branch)';
-      subject = parseBody(routingConfig.goodSubject, 4);
-      body = parseBody(routingConfig.goodBody, 4);
-    } else if (formData.rating === 3) {
-      route = 'Satisfactory (3-Star Branch)';
-      subject = parseBody(routingConfig.neutralSubject, 3);
-      body = parseBody(routingConfig.neutralBody, 3);
+    const threshold = routingConfig.starThreshold ?? 3;
+    const isPositive = formData.rating > threshold;
+
+    if (isPositive) {
+      if (formData.rating === 5) {
+        route = 'Excellent (5-Star Branch)';
+        subject = parseBody(routingConfig.excellentSubject, 5);
+        body = parseBody(routingConfig.excellentBody, 5);
+      } else if (formData.rating === 4) {
+        route = 'Very Good (4-Star Branch)';
+        subject = parseBody(routingConfig.goodSubject, 4);
+        body = parseBody(routingConfig.goodBody, 4);
+      } else {
+        route = 'Neutral (3-Star Branch)';
+        subject = parseBody(routingConfig.neutralSubject, 3);
+        body = parseBody(routingConfig.neutralBody, 3);
+      }
     } else {
-      route = `Critical (1-2 Stars Branch)`;
+      route = `Direct Feedback / Escalation Branch (${formData.rating} Stars)`;
       subject = parseBody(routingConfig.poorSubject, formData.rating);
       body = parseBody(routingConfig.poorBody, formData.rating);
       alertSupport = true;
@@ -290,20 +375,25 @@ export default function PipelineSandbox({
     let route = '';
     let alertSupport = false;
 
-    if (formData.rating === 5) {
-      route = 'Excellent (5-Star Branch)';
-      subject = parseBody(routingConfig.excellentSubject, 5);
-      body = parseBody(routingConfig.excellentBody, 5);
-    } else if (formData.rating === 4) {
-      route = 'Very Good (4-Star Branch)';
-      subject = parseBody(routingConfig.goodSubject, 4);
-      body = parseBody(routingConfig.goodBody, 4);
-    } else if (formData.rating === 3) {
-      route = 'Satisfactory (3-Star Branch)';
-      subject = parseBody(routingConfig.neutralSubject, 3);
-      body = parseBody(routingConfig.neutralBody, 3);
+    const threshold = routingConfig.starThreshold ?? 3;
+    const isPositive = formData.rating > threshold;
+
+    if (isPositive) {
+      if (formData.rating === 5) {
+        route = 'Excellent (5-Star Branch)';
+        subject = parseBody(routingConfig.excellentSubject, 5);
+        body = parseBody(routingConfig.excellentBody, 5);
+      } else if (formData.rating === 4) {
+        route = 'Very Good (4-Star Branch)';
+        subject = parseBody(routingConfig.goodSubject, 4);
+        body = parseBody(routingConfig.goodBody, 4);
+      } else {
+        route = 'Neutral (3-Star Branch)';
+        subject = parseBody(routingConfig.neutralSubject, 3);
+        body = parseBody(routingConfig.neutralBody, 3);
+      }
     } else {
-      route = `Critical (1-2 Stars Branch)`;
+      route = `Direct Feedback / Escalation Branch (${formData.rating} Stars)`;
       subject = parseBody(routingConfig.poorSubject, formData.rating);
       body = parseBody(routingConfig.poorBody, formData.rating);
       alertSupport = true;
@@ -328,7 +418,7 @@ export default function PipelineSandbox({
             formData.name,
             formData.email,
             formData.rating,
-            formData.comments
+            getEffectiveComments()
           );
           logs.push(`✅ Successfully recorded feedback row to Google Sheet.`);
           setSheetSuccess(true);
@@ -358,7 +448,7 @@ export default function PipelineSandbox({
         if (alertSupport && routingConfig.supportEmail) {
           logs.push(`🚨 Escalating notification email to support: ${routingConfig.supportEmail}...`);
           setAutoSubmitLogs([...logs]);
-          const alertBody = `⚠️ URGENT ESCALATION: Negative Feedback received from ${formData.name}. Ratings: ${formData.rating} Stars. Comments: ${formData.comments}`;
+          const alertBody = `⚠️ URGENT ESCALATION: Negative Feedback received from ${formData.name}. Ratings: ${formData.rating} Stars. Comments: ${getEffectiveComments()}`;
           await sendGmailEmail(token, routingConfig.supportEmail, '⚠️ URGENT ESCALATION: Poor customer feedback', alertBody);
           logs.push(`✅ Escalation alert dispatched successfully.`);
           setAutoSubmitLogs([...logs]);
@@ -379,21 +469,29 @@ export default function PipelineSandbox({
   };
 
   const handleSubmitClick = () => {
-    if (!formData.comments || !formData.comments.trim()) {
+    const effectiveComments = getEffectiveComments();
+    if (!effectiveComments || !effectiveComments.trim()) {
       setValidationError("You must fill out the review.");
       return;
     }
     setValidationError(null);
 
-    // Automatically copy the review to clipboard when 4 or 5 star has been chosen
-    if (formData.rating >= 4) {
-      copyTextToClipboard(formData.comments);
+    // Reset sharing states for a fresh submission
+    setVisitedPlatforms([]);
+    setHasFinishedSharing(false);
+
+    const threshold = routingConfig.starThreshold ?? 3;
+    const isPositive = formData.rating > threshold;
+
+    // Automatically copy the review to clipboard when rating is positive (above threshold)
+    if (isPositive) {
+      copyTextToClipboard(effectiveComments);
       setShowCopiedNotification(true);
       setTimeout(() => setShowCopiedNotification(false), 4400);
     }
 
     if (isCurrentlyPublished) {
-      if (formData.rating >= 4) {
+      if (isPositive) {
         try {
           const reviewUrl = routingConfig.googleReviewsUrl || "https://g.page/r/CajrrF4R_V20EAI/review";
           const win = window.open(reviewUrl, '_blank');
@@ -407,6 +505,12 @@ export default function PipelineSandbox({
       handleAutoSubmit();
     } else {
       handleSimulateRouting();
+      // Set hasSubmittedAuto to true in simulator so the developer can interact with the congrats screen
+      setHasSubmittedAuto(true);
+      // Proactively trigger Sheet append automatically if Google account is connected
+      if (token && resources.spreadsheetId) {
+        handleAppendToRealSheet();
+      }
     }
   };
 
@@ -426,7 +530,7 @@ export default function PipelineSandbox({
         formData.name,
         formData.email,
         formData.rating,
-        formData.comments
+        getEffectiveComments()
       );
       setSheetSuccess(true);
       setTimeout(() => setSheetSuccess(false), 4000);
@@ -455,7 +559,7 @@ export default function PipelineSandbox({
       
       // If critical, optionally simulate support alert too
       if (sendEscalationAlert) {
-        const alertBody = `⚠️ URGENT ESCALATION: Negative Feedback received from ${formData.name}. Ratings: ${formData.rating} Stars. Comments: ${formData.comments}`;
+        const alertBody = `⚠️ URGENT ESCALATION: Negative Feedback received from ${formData.name}. Ratings: ${formData.rating} Stars. Comments: ${getEffectiveComments()}`;
         await sendGmailEmail(token!, routingConfig.supportEmail, '⚠️ URGENT ESCALATION: Poor customer feedback', alertBody);
       }
 
@@ -479,44 +583,214 @@ export default function PipelineSandbox({
         
         {/* Dynamic Simulator Inputs */}
         <div className={showRightColumn ? "lg:col-span-5 space-y-6" : "lg:col-span-12 max-w-2xl mx-auto space-y-6 w-full"}>
-          {isCurrentlyPublished && hasSubmittedAuto ? (
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center space-y-5" id="published-congrats-card">
-              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="w-8 h-8" />
-              </div>
-              <div className="space-y-3">
-                <h3 className="text-xl font-bold text-slate-950">Thank you, {formData.name || 'Federico'}!</h3>
-                <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-                  {formData.rating >= 4 
-                    ? "We have successfully recorded your feedback and opened our Google Review page in a new window/tab. In case it didn't open automatically, please click below." 
-                    : "We appreciate your feedback and are looking into how we can improve. Our support desk has been notified."}
-                </p>
-                {formData.rating >= 4 && formData.comments && (
-                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl max-w-sm mx-auto text-left space-y-1.5 shadow-2xs">
-                    <p className="text-[11px] font-bold text-amber-850 flex items-center gap-1">
-                      <span>📋 Review comments copied!</span>
-                    </p>
-                    <p className="text-[11px] text-amber-705 italic line-clamp-2">"{formData.comments}"</p>
-                    <p className="text-[10px] text-slate-400 font-medium">Just right-click and paste it on the Google form!</p>
-                  </div>
-                )}
-              </div>
+          {hasSubmittedAuto ? (
+            (() => {
+              const threshold = routingConfig.starThreshold ?? 3;
+              const isPositive = formData.rating > threshold;
 
-              {formData.rating >= 4 && (
-                <div className="pt-2">
-                  <a
-                    href={routingConfig.googleReviewsUrl || "https://g.page/r/CajrrF4R_V20EAI/review"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#b91c1c] text-white rounded-xl text-sm font-bold shadow-md cursor-pointer transition-all duration-150 active:scale-98"
-                    id="published-submit-review-btn"
-                  >
-                    <Sparkles className="w-4 h-4 text-white" />
-                    <span>Open Google Review Page</span>
-                  </a>
+              if (!isPositive) {
+                // Negative rating: show the direct private feedback Thank You card
+                return (
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center space-y-5" id="negative-feedback-thanks">
+                    <div className="w-16 h-16 bg-red-50 text-[#dc2626] rounded-full flex items-center justify-center mx-auto">
+                      <CheckCircle className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="text-xl font-bold text-slate-950">Thank you, {formData.name || 'Federico'}!</h3>
+                      <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+                        Your comments have been sent directly to our management team to help us improve. We truly appreciate your valuable feedback!
+                      </p>
+                    </div>
+                    <div className="pt-2">
+                      <button
+                        onClick={() => {
+                          setHasSubmittedAuto(false);
+                          setVisitedPlatforms([]);
+                          setHasFinishedSharing(false);
+                          setFormData(prev => ({ ...prev, comments: '' }));
+                        }}
+                        className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer transition-all active:scale-95 animate-fade-in"
+                      >
+                        Submit Another Feedback
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Positive rating: show the sequential review platforms sharing flow
+              if (enabledPlatforms.length === 0 || hasFinishedSharing || remainingPlatforms.length === 0) {
+                // Final positive thank you state
+                return (
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center space-y-5" id="published-congrats-card-final">
+                    <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto animate-fade-in">
+                      <CheckCircle className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="text-xl font-bold text-slate-950">Thank you, {formData.name || 'Federico'}!</h3>
+                      <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+                        Your review has been successfully recorded and shared. We are extremely grateful for your support!
+                      </p>
+                    </div>
+                    <div className="pt-2">
+                      <button
+                        onClick={() => {
+                          setHasSubmittedAuto(false);
+                          setVisitedPlatforms([]);
+                          setHasFinishedSharing(false);
+                          setFormData(prev => ({ ...prev, comments: '' }));
+                        }}
+                        className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer transition-all active:scale-95"
+                      >
+                        Submit Another Feedback
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (visitedPlatforms.length === 0) {
+                // First step of positive flow: Show all enabled platforms to let them choose or skip
+                return (
+                  <div className="bg-slate-950 p-6 rounded-3xl border border-slate-900 shadow-xl text-center space-y-5 animate-fade-in" id="share-step-1">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-10 h-10 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                        <Share2 className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <h3 className="text-xl font-normal text-white">Thanks {formData.name ? formData.name.trim().split(' ')[0] : 'Federico'}!</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-sm text-white max-w-md mx-auto leading-relaxed font-normal">
+                        Keep sharing the love! Your review is already copied to the clipboard, all you have to do is click one of the platforms and paste it.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 max-w-sm mx-auto pt-2">
+                      <p className="text-[11px] text-white font-normal uppercase tracking-wider">NEXT</p>
+                      <div className="flex flex-row justify-center gap-6 items-center flex-wrap">
+                        {remainingPlatforms.map((platform) => {
+                          let IconComponent = null;
+                          if (platform.name === 'Facebook') {
+                            IconComponent = (
+                              <div className="w-8 h-8 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                                <Facebook className="w-4 h-4 fill-[#1877f2] text-[#1877f2]" />
+                              </div>
+                            );
+                          } else if (platform.name === 'Yelp') {
+                            IconComponent = (
+                              <div className="w-8 h-8 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                                <Star className="w-4 h-4 fill-[#d32323] text-[#d32323]" />
+                              </div>
+                            );
+                          } else {
+                            IconComponent = (
+                              <div className="w-8 h-8 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                                <CheckSquare className="w-4 h-4 text-blue-500" />
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <button
+                              key={platform.name}
+                              onClick={() => handleSharePlatformClick(platform)}
+                              className="text-sm font-normal text-yellow-400 hover:text-yellow-300 hover:underline transition-all cursor-pointer flex items-center gap-2 select-none"
+                            >
+                              {IconComponent}
+                              <span>{platform.name}</span>
+                            </button>
+                          );
+                        })}
+
+                        {/* Third Option: Share via Email */}
+                        <button
+                          onClick={() => {
+                            const subject = encodeURIComponent("Highly Recommend!");
+                            const body = encodeURIComponent(formData.comments || "Highly recommended feedback!");
+                            window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+                          }}
+                          className="text-sm font-normal text-yellow-400 hover:text-yellow-300 hover:underline transition-all cursor-pointer flex items-center gap-2 select-none"
+                        >
+                          <div className="w-8 h-8 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                            <Mail className="w-4 h-4 text-slate-700" />
+                          </div>
+                          <span>Email</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Subsequent steps of positive flow: Ask gently one-at-a-time for the remaining platforms
+              const nextPlatform = remainingPlatforms[0];
+              return (
+                <div className="bg-slate-950 p-6 rounded-3xl border border-slate-900 shadow-xl text-center space-y-5 animate-fade-in" id="share-step-subsequent">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="w-10 h-10 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                      <Share2 className="w-5 h-5 text-slate-700" />
+                    </div>
+                    <h3 className="text-xl font-normal text-white font-sans">Awesome!</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed font-normal">
+                      Gently, would you also like to share your review on <strong className="text-white font-normal">{nextPlatform.name}</strong>? Your review text is still copied in your clipboard.
+                    </p>
+
+                    {formData.comments && (
+                      <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl max-w-sm mx-auto text-left space-y-1 shadow-2xs">
+                        <p className="text-[11px] text-slate-300 italic line-clamp-2 font-normal">"{formData.comments}"</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 max-w-xs mx-auto pt-2">
+                    {(() => {
+                      let IconComponent = null;
+                      if (nextPlatform.name === 'Facebook') {
+                        IconComponent = (
+                          <div className="w-8 h-8 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                            <Facebook className="w-4 h-4 fill-[#1877f2] text-[#1877f2]" />
+                          </div>
+                        );
+                      } else if (nextPlatform.name === 'Yelp') {
+                        IconComponent = (
+                          <div className="w-8 h-8 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                            <Star className="w-4 h-4 fill-[#d32323] text-[#d32323]" />
+                          </div>
+                        );
+                      } else {
+                        IconComponent = (
+                          <div className="w-8 h-8 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                            <CheckSquare className="w-4 h-4 text-blue-500" />
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="flex justify-center">
+                          <button
+                            key={nextPlatform.name}
+                            onClick={() => handleSharePlatformClick(nextPlatform)}
+                            className="text-sm font-normal text-yellow-400 hover:text-yellow-300 hover:underline transition-all cursor-pointer flex items-center gap-2 select-none"
+                          >
+                            {IconComponent}
+                            <span>Yes, {nextPlatform.name}</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    <button
+                      onClick={() => setHasFinishedSharing(true)}
+                      className="w-full py-2 text-xs font-normal text-slate-500 hover:text-slate-300 hover:underline transition-all cursor-pointer"
+                    >
+                      No thanks, I'm all done
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })()
           ) : (
             <div className={isCurrentlyPublished ? "bg-white p-0 space-y-6" : "bg-white rounded-2xl border border-slate-100 p-6 shadow-xs"}>
               
@@ -528,65 +802,67 @@ export default function PipelineSandbox({
               )}
 
               <div className="space-y-4">
-              {user ? (
-                /* Google reviewer identity badge card */
-                <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-3 shadow-xs" id="review-identity-card">
-                  <div className="flex items-center gap-3">
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full border border-slate-200" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-slate-250 flex items-center justify-center font-bold text-slate-700 text-sm">
-                        {(user.displayName || user.email || 'G').charAt(0).toUpperCase()}
+              {!isCurrentlyPublished && (
+                user ? (
+                  /* Google reviewer identity badge card */
+                  <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-3 shadow-xs" id="review-identity-card">
+                    <div className="flex items-center gap-3">
+                      {user.photoURL ? (
+                        <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full border border-slate-200" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-slate-250 flex items-center justify-center font-bold text-slate-700 text-sm">
+                          {(user.displayName || user.email || 'G').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-slate-900 leading-none">Reviewing as {user.displayName || 'Google User'}</p>
+                        <p className="text-[10.5px] font-medium text-slate-400 mt-1">{user.email}</p>
                       </div>
-                    )}
-                    <div className="text-left">
-                      <p className="text-xs font-bold text-slate-900 leading-none">Reviewing as {user.displayName || 'Google User'}</p>
-                      <p className="text-[10.5px] font-medium text-slate-400 mt-1">{user.email}</p>
                     </div>
-                  </div>
-                  {onLogout && (
-                    <button
-                      type="button"
-                      onClick={onLogout}
-                      className="text-[10px] font-bold text-red-650 hover:text-red-750 hover:underline transition-colors cursor-pointer"
-                      id="live-form-disconnect-btn"
-                    >
-                      Disconnect
-                    </button>
-                  )}
-                </div>
-              ) : (
-                /* Only Connect with Google option styled as requested */
-                <>
-                  {onLogin && (
-                    <div id="live-form-google-signin-wrapper">
+                    {onLogout && (
                       <button
                         type="button"
-                        onClick={onLogin}
-                        disabled={isLoggingIn}
-                        className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-yellow-400 hover:bg-yellow-500 border border-transparent text-slate-900 rounded-xl text-xs font-bold shadow-2xs transition-all duration-150 cursor-pointer active:scale-98"
-                        id="live-form-google-signin-btn"
+                        onClick={onLogout}
+                        className="text-[10px] font-bold text-red-650 hover:text-red-750 hover:underline transition-colors cursor-pointer"
+                        id="live-form-disconnect-btn"
                       >
-                        {isLoggingIn ? (
-                          <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4.5 h-4.5 shrink-0">
-                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-                          </svg>
-                        )}
-                        <span>Connect with Google</span>
+                        Disconnect
                       </button>
-                    </div>
-                  )}
-                  {authError && (
-                    <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs font-semibold rounded-xl leading-relaxed mt-2" id="sandbox-auth-error">
-                      ⚠️ {authError}
-                    </div>
-                  )}
-                </>
+                    )}
+                  </div>
+                ) : (
+                  /* Only Connect with Google option styled as requested */
+                  <>
+                    {onLogin && (
+                      <div id="live-form-google-signin-wrapper">
+                        <button
+                          type="button"
+                          onClick={onLogin}
+                          disabled={isLoggingIn}
+                          className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-yellow-400 hover:bg-yellow-500 border border-transparent text-slate-900 rounded-xl text-xs font-bold shadow-2xs transition-all duration-150 cursor-pointer active:scale-98"
+                          id="live-form-google-signin-btn"
+                        >
+                          {isLoggingIn ? (
+                            <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4.5 h-4.5 shrink-0">
+                              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                            </svg>
+                          )}
+                          <span>Connect with Google</span>
+                        </button>
+                      </div>
+                    )}
+                    {authError && (
+                      <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs font-semibold rounded-xl leading-relaxed mt-2" id="sandbox-auth-error">
+                        ⚠️ {authError}
+                      </div>
+                    )}
+                  </>
+                )
               )}
 
               <div>
@@ -599,9 +875,9 @@ export default function PipelineSandbox({
                     <button
                       key={star}
                       onClick={() => {
-                        const nextComments = star < 4 ? '' : formData.comments;
-                        setFormData({ ...formData, rating: star, comments: nextComments });
+                        setFormData({ ...formData, rating: star });
                         setValidationError(null);
+                        setShowAiCopiedBanner(false);
                       }}
                       className="p-1 transition-transform active:scale-95 cursor-pointer"
                       id={`star-${star}-btn`}
@@ -632,6 +908,7 @@ export default function PipelineSandbox({
                     if (validationError) {
                       setValidationError(null);
                     }
+                    setShowAiCopiedBanner(false);
                   }}
                   rows={3}
                   className={`w-full px-5 py-4 border rounded-xl focus:ring-2 focus:ring-red-100 font-typewriter text-[14px] leading-[18px] font-normal text-slate-900 ${
@@ -648,7 +925,36 @@ export default function PipelineSandbox({
                   </p>
                 )}
 
-                {formData.rating >= 4 && (
+                {formData.rating <= (routingConfig.starThreshold ?? 3) && (
+                  <div className="mt-2.5 flex flex-col gap-1.5" id="fix-together-container">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFixTogether(!fixTogether);
+                        setValidationError(null);
+                      }}
+                      className={`text-xs transition-all py-1 flex items-center gap-2 cursor-pointer active:scale-95 self-start select-none ${
+                        fixTogether
+                          ? 'text-slate-600 font-semibold'
+                          : 'text-slate-400 hover:text-slate-500 font-normal'
+                      }`}
+                      id="fix-together-btn"
+                    >
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                        fixTogether
+                          ? 'border-slate-400 bg-slate-100'
+                          : 'border-slate-300'
+                      }`}>
+                        {fixTogether && (
+                          <Check className="w-2.5 h-2.5 text-slate-600 stroke-[3] shrink-0" />
+                        )}
+                      </div>
+                      <span>Let's try to fix this together</span>
+                    </button>
+                  </div>
+                )}
+
+                {formData.rating > (routingConfig.starThreshold ?? 3) && (
                   <div className="flex flex-col items-start gap-1.5 mt-3">
                     <button
                       type="button"
@@ -672,93 +978,22 @@ export default function PipelineSandbox({
                     <span className="text-[11px] text-slate-950 font-medium leading-normal">
                       Click again for a new version, feel free to edit.
                     </span>
+                    {showAiCopiedBanner && (
+                      <p className="text-[13px] font-bold text-slate-900 mt-2 border-l-2 border-yellow-400 pl-2 leading-normal" id="ai-copied-banner">
+                        Copied! Click submit feedback, once you arrive simply paste into the review field.
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {formData.rating >= 4 ? (
-                  formData.comments && (
-                    <div className="mt-3 p-4 bg-white rounded-2xl" id="high-rating-route-callout">
-                      <div 
-                        onClick={() => {
-                          try {
-                            copyTextToClipboard(formData.comments);
-                            setShowCopiedNotification(true);
-                            setTimeout(() => setShowCopiedNotification(false), 4400);
-                            
-                            // Automatically record to Google Sheet as well!
-                            if (token && resources.spreadsheetId) {
-                              handleAppendToRealSheet();
-                            }
- 
-                            const win = window.open(routingConfig.googleReviewsUrl || 'https://g.page/r/CajrrF4R_V20EAI/review', '_blank');
-                            if (win) win.focus();
-                          } catch (err) {
-                            console.error('Failed to copy and open directory link:', err);
-                          }
-                        }}
-                        className="hover:bg-slate-50/50 cursor-pointer active:scale-[0.99] rounded-xl p-3 text-xs space-y-1.5 transition-all"
-                        title="Click to copy and open Google Directory"
-                        id="ready-to-paste-card"
-                      >
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className="font-bold text-slate-900 flex items-center gap-2 flex-wrap text-left leading-relaxed">
-                            <span>Copied! Click submit feedback, once you arrive simply paste into the review field.</span>
-                          </span>
-                        </div>
-                        <p className="text-slate-900 py-0.5 break-words font-normal font-typewriter text-[14px] leading-[18px]">{formData.comments}</p>
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  formData.comments && (
-                    <div className={`mt-2 p-3 rounded-xl border transition-all duration-300 text-xs flex flex-col gap-2 ${
-                      showCopiedNotification 
-                        ? 'bg-emerald-50 border-emerald-100 text-emerald-800' 
-                        : 'bg-red-50/30 border-red-100 text-slate-705'
-                    }`} id="copy-info-bubble">
-                      <div className="flex items-start gap-2">
-                        {showCopiedNotification ? (
-                          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                        ) : (
-                          <Info className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                        )}
-                        <div className="flex-1 font-medium text-slate-700">
-                          {showCopiedNotification ? (
-                            <span><strong>Review copied to clipboard!</strong> Copy and paste it anywhere!</span>
-                          ) : (
-                            <span>Copy and paste it anywhere!</span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-slate-100">
-                        <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                          {showCopiedNotification ? "✓ Copied to Clipboard" : "📋 Status: Ready"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleCopyComments}
-                          className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
-                            showCopiedNotification
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              : 'bg-red-600 hover:bg-red-700 text-white'
-                          }`}
-                          id="manual-copy-comments-btn"
-                        >
-                          <Copy className="w-3 h-3" />
-                          <span>{showCopiedNotification ? "Copy Again" : "Copy to Clipboard"}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )
-                )}
+
               </div>
 
               <button
                 onClick={handleSubmitClick}
                 disabled={isAutoSubmitting}
                 className={`group flex items-center gap-2.5 p-0 bg-transparent border-0 text-[17px] font-bold cursor-pointer outline-none select-none transition-all ${
-                  (!formData.comments || !formData.comments.trim())
+                  (!getEffectiveComments() || !getEffectiveComments().trim())
                     ? 'text-black hover:text-slate-800'
                     : 'text-[#dc2626] hover:text-[#b91c1c]'
                 } disabled:text-slate-400`}
@@ -767,19 +1002,24 @@ export default function PipelineSandbox({
                 {isAutoSubmitting && (
                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0"></div>
                 )}
-                <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold shrink-0 transition-all duration-200 ${
-                  (!formData.comments || !formData.comments.trim())
+                <span className={`flex items-center justify-center w-5 h-5 rounded-full text-white text-[10px] font-bold shrink-0 transition-all duration-200 ${
+                  (!getEffectiveComments() || !getEffectiveComments().trim())
                     ? 'bg-black group-hover:bg-slate-800'
                     : 'bg-[#dc2626] group-hover:bg-[#b91c1c]'
                 }`}>3</span>
                 <span className="group-hover:underline transition-all duration-200">
-                  {formData.rating <= 3 ? "Submit" : "Submit & Paste"}
+                  {formData.rating <= (routingConfig.starThreshold ?? 3) ? "Submit" : "Submit & Paste"}
                 </span>
               </button>
-              {formData.rating >= 4 && (
-                <div className="flex items-start gap-1.5 text-xs text-black mt-2 select-none leading-relaxed">
-                  <Info className="w-3.5 h-3.5 mt-0.5 text-black shrink-0" />
-                  <span>Once you arrive to the review pop-up simple paste the review</span>
+              {formData.rating > (routingConfig.starThreshold ?? 3) && (
+                <div className="mt-3.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11.5px] text-slate-600 leading-relaxed space-y-1.5" id="maps-ugc-policy-notice">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                    <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Google Maps UGC Policy Safe</span>
+                  </div>
+                  <p>
+                    To comply with Google’s User Generated Content (UGC) policy, this AI feature operates strictly as a **helpful writing aid to format and polish your real-world experience**. Deliberately fake, synthetic, or unverified reviews violate Google’s policy and can lead to review deletion or account suspension. Please review, personalize, and verify the drafted suggestion before posting to ensure it is completely honest and authentic.
+                  </p>
                 </div>
               )}
             </div>
@@ -964,7 +1204,7 @@ export default function PipelineSandbox({
                         <div className="grid grid-cols-3 text-slate-600"><span className="font-medium">Name:</span><span className="col-span-2 font-mono">{formData.name}</span></div>
                         <div className="grid grid-cols-3 text-slate-600"><span className="font-medium">Email:</span><span className="col-span-2 font-mono">{formData.email}</span></div>
                         <div className="grid grid-cols-3 text-slate-600"><span className="font-medium">Rating:</span><span className="col-span-2 text-red-600 font-bold">{formData.rating} Stars</span></div>
-                        <div className="grid grid-cols-3 text-slate-600"><span className="font-medium">Comments:</span><span className="col-span-2 italic text-slate-500 truncate">{formData.comments || '(No comments)'}</span></div>
+                        <div className="grid grid-cols-3 text-slate-600"><span className="font-medium">Comments:</span><span className="col-span-2 italic text-slate-500 truncate">{getEffectiveComments() || '(No comments)'}</span></div>
                       </div>
                     </div>
                   </div>

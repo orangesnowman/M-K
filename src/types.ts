@@ -23,4 +23,11 @@ export interface RoutingConfiguration {
   poorBody: string;
   supportEmail: string;
   googleReviewsUrl: string;
+  starThreshold: number;
+  yelpEnabled: boolean;
+  yelpUrl: string;
+  facebookEnabled: boolean;
+  facebookUrl: string;
+  bbbEnabled: boolean;
+  bbbUrl: string;
 }

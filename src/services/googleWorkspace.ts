@@ -289,17 +289,44 @@ export async function appendFeedbackToSheet(
   const timestamp = new Date().toLocaleString();
   const ratingText = `${rating} Star${rating > 1 ? 's' : ''}`;
 
-  // Encode the sheet name prefix so special characters and spaces are perfectly handled.
-  const encodedRange = encodeURIComponent("'Form Responses 1'!A:E");
-  const response = await fetchViaProxy(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}:append?valueInputOption=USER_ENTERED`,
-    token,
-    'POST',
-    {
-      values: [[timestamp, name, email, ratingText, comments]]
-    }
-  );
+  const rangesToTry = [
+    "'Form Responses 1'!A:E",
+    "Sheet1!A:E",
+    "A:E"
+  ];
 
-  await handleResponse(response, 'Recording feedback to Sheet failed');
-  return true;
+  let lastError: any = null;
+
+  for (const range of rangesToTry) {
+    try {
+      const encodedRange = encodeURIComponent(range);
+      const response = await fetchViaProxy(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}:append?valueInputOption=USER_ENTERED`,
+        token,
+        'POST',
+        {
+          values: [[timestamp, name, email, ratingText, comments]]
+        }
+      );
+      
+      if (response.ok) {
+        await handleResponse(response, 'Recording feedback to Sheet failed');
+        return true;
+      } else {
+        const text = await response.text();
+        let errorDetail = `Status ${response.status}`;
+        try {
+          const errJson = JSON.parse(text);
+          errorDetail = errJson.error?.message || errJson.error || JSON.stringify(errJson);
+        } catch {
+          errorDetail = text.substring(0, 150) || `Non-JSON response with status ${response.status}`;
+        }
+        lastError = new Error(errorDetail);
+      }
+    } catch (err: any) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('Recording feedback to Sheet failed on all tried ranges.');
 }

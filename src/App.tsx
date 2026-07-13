@@ -74,7 +74,14 @@ const defaultRoutingConfig = (userEmail: string = ''): RoutingConfiguration => (
   <p>Can you please reply to this email, or let us know a convenient time to schedule a phone call? We would appreciate the opportunity to listen to your concerns and seek a resolution.</p>
   <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 25px 0;" />
   <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">With high concern,<br/><strong>Alex Carter</strong><br/>Global CX Director</p>
-</div>`
+</div>`,
+  starThreshold: 3,
+  yelpEnabled: true,
+  yelpUrl: 'https://www.yelp.com/biz/m-and-k-used-auto-parts-vero-beach-2',
+  facebookEnabled: true,
+  facebookUrl: 'https://www.facebook.com/MKusedautoparts/reviews',
+  bbbEnabled: false,
+  bbbUrl: 'https://www.bbb.org'
 });
 
 const isPublished = () => {
@@ -165,7 +172,17 @@ export default function App() {
           localStorage.setItem('g_routing_config', JSON.stringify(fresh));
           return fresh;
         }
-        return parsed;
+        const merged = {
+          ...defaultRoutingConfig(parsed.supportEmail || ''),
+          ...parsed
+        };
+        if (merged.yelpUrl === 'https://www.yelp.com') {
+          merged.yelpUrl = 'https://www.yelp.com/biz/m-and-k-used-auto-parts-vero-beach-2';
+        }
+        if (merged.facebookUrl === 'https://www.facebook.com' || !merged.facebookUrl) {
+          merged.facebookUrl = 'https://www.facebook.com/MKusedautoparts/reviews';
+        }
+        return merged;
       }
       return defaultRoutingConfig();
     } catch {
@@ -279,25 +296,25 @@ export default function App() {
 
       {/* Main Header Container */}
       {getPublishedState() ? (
-        <header className="bg-black py-6 border-b border-neutral-900 shadow-sm">
-          <div className="max-w-2xl mx-auto px-4 flex flex-row items-center gap-5">
-            {/* MK Logo */}
-            <div className="shrink-0 select-none">
+        <header className="bg-white pt-4 pb-0.5 shadow-none">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-row items-center gap-5">
+            {/* Brand Logo */}
+            <div className="shrink-0 select-none bg-white p-0 m-0 overflow-hidden h-20 w-20 sm:h-24 sm:w-24 flex items-center justify-center rounded-none ml-[-8px] sm:ml-[-4px]">
               <img
                 src={mkLogo}
                 alt="M&K Logo"
-                className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-cover shadow-md bg-white border border-slate-800"
+                className="h-28 w-28 sm:h-32 sm:w-32 object-contain mix-blend-multiply scale-[1.35] transform-gpu"
                 referrerPolicy="no-referrer"
               />
             </div>
             
-            {/* Portal Card */}
-            <div className="flex-1 bg-slate-950 border border-slate-900 rounded-2xl p-5 w-full shadow-inner">
-              <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none text-left">
-                M&K Customer Feedback Portal
+            {/* Title & Subtitle */}
+            <div className="flex-1">
+              <h1 className="text-[1.125rem] sm:text-[1.35rem] font-semibold text-[#dc2626] tracking-[0.02em] leading-none text-left">
+                Customer Feedback
               </h1>
-              <p className="text-sm text-white/95 mt-2 max-w-3xl leading-relaxed text-left font-medium">
-                We value your experience! Please share your rating and review below.
+              <p className="text-[0.7875rem] text-[#dc2626] mt-0.5 max-w-3xl leading-none text-left font-medium">
+                We value your experience!
               </p>
             </div>
           </div>
@@ -383,12 +400,6 @@ export default function App() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-1">
-                  <img
-                    src={mkLogo}
-                    alt="M&K Logo"
-                    className="w-12 h-12 rounded-xl object-cover bg-white border border-slate-800 shrink-0"
-                    referrerPolicy="no-referrer"
-                  />
                   <div>
                     <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none">
                       MandK App
@@ -431,7 +442,7 @@ export default function App() {
       )}
 
       {/* Main Dynamic Workflow Interface */}
-      <main className={`${getPublishedState() ? 'max-w-2xl' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 mt-8 pb-20`}>
+      <main className={`${getPublishedState() ? 'max-w-2xl mt-1 pb-8' : 'max-w-7xl mt-8 pb-20'} mx-auto px-4 sm:px-6 lg:px-8`}>
         
         {/* Navigation Tabs */}
         {!getPublishedState() && (
