@@ -19,7 +19,11 @@ import {
   Terminal,
   Activity,
   UserCheck,
-  Play
+  Play,
+  ShieldCheck,
+  ShieldAlert,
+  Smartphone,
+  Database
 } from 'lucide-react';
 
 const defaultRoutingConfig = (userEmail: string = ''): RoutingConfiguration => ({
@@ -326,76 +330,139 @@ export default function App() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               {/* Title, Consolidated Description & Minimal Process flow */}
               <div>
-                {/* Horizontal Minimal Flow Indicators */}
-                <div className="flex items-center gap-3 sm:gap-4 mb-5 text-xs overflow-x-auto pb-2.5 max-w-full -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none shrink-0">
-                  <div className="flex flex-col items-center text-center shrink-0">
-                    {user && token ? (
-                      <div className="flex flex-col items-center shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 relative">
-                          <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse"></span>
-                          <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-6 h-6">
-                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                            <path fill="none" d="M0 0h48v48H0z"></path>
-                          </svg>
+                {/* Horizontal Modern Flow Indicators */}
+                <div className="flex items-center gap-2.5 overflow-x-auto pb-4 pt-1 px-1 max-w-full -mx-4 sm:-mx-0 scrollbar-none shrink-0 mb-6">
+                  {/* Step 1: Authorized */}
+                  {user && token ? (
+                    <div className="bg-[#0c101d] border border-slate-800/90 rounded-2xl p-3 flex items-center gap-3.5 min-w-[210px] shrink-0 transition-all duration-200">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-5.5 h-5.5" />
+                      </div>
+                      <div className="flex flex-col text-left justify-center select-none">
+                        <span className="text-[13px] font-bold text-slate-100 tracking-wide">Authorized</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Active</span>
                         </div>
-                        <span className="text-[10px] font-bold text-yellow-400 tracking-wide">Authorized</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleLogin}
+                      disabled={isLoggingIn}
+                      type="button"
+                      className="bg-[#0c101d] border border-slate-800/90 hover:border-red-500/50 hover:bg-slate-900/40 rounded-2xl p-3 flex items-center gap-3.5 min-w-[210px] shrink-0 transition-all duration-200 cursor-pointer text-left outline-none focus:outline-hidden"
+                      title="Connect Google Account"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                        {isLoggingIn ? (
+                          <div className="w-4.5 h-4.5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <ShieldAlert className="w-5.5 h-5.5" />
+                        )}
+                      </div>
+                      <div className="flex flex-col text-left justify-center">
+                        <span className="text-[13px] font-bold text-slate-300 tracking-wide group-hover:text-white">Connect Google</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Pending</span>
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  <ArrowRight className="w-4 h-4 text-slate-700 shrink-0" />
+
+                  {/* Step 2: Live App */}
+                  <div className="bg-[#0c101d] border border-slate-800/90 rounded-2xl p-3 flex items-center gap-3.5 min-w-[210px] shrink-0 transition-all duration-200">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                      <Smartphone className="w-5.5 h-5.5" />
+                    </div>
+                    <div className="flex flex-col text-left justify-center select-none">
+                      <span className="text-[13px] font-bold text-slate-100 tracking-wide">Live App</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Online</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ArrowRight className="w-4 h-4 text-slate-700 shrink-0" />
+
+                  {/* Step 3: Sheet Feedback */}
+                  <div className="bg-[#0c101d] border border-slate-800/90 rounded-2xl p-3 flex items-center gap-3.5 min-w-[210px] shrink-0 transition-all duration-200">
+                    {resources.spreadsheetId ? (
+                      <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
+                        <Database className="w-5.5 h-5.5" />
                       </div>
                     ) : (
-                      <button
-                        onClick={handleLogin}
-                        disabled={isLoggingIn}
-                        type="button"
-                        className="flex flex-col items-center group cursor-pointer border-none bg-transparent outline-none focus:outline-hidden shrink-0"
-                        id="workflow-header-auth-btn"
-                        title="Connect Google Account"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-red-650 hover:bg-red-750 transition-colors flex items-center justify-center mb-1.5 relative shadow-xs">
-                          {isLoggingIn ? (
-                            <div className="w-4.5 h-4.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-6 h-6">
-                              <path fill="#ffffff" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                              <path fill="#ffffff" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                              <path fill="#ffffff" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                              <path fill="#ffffff" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                              <path fill="none" d="M0 0h48v48H0z"></path>
-                            </svg>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-300 group-hover:text-white transition-colors tracking-wide">Connect Google</span>
-                      </button>
+                      <div className="w-10 h-10 rounded-xl bg-slate-800/50 border border-slate-800 text-slate-500 flex items-center justify-center shrink-0">
+                        <Database className="w-5.5 h-5.5" />
+                      </div>
                     )}
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-red-500 stroke-[3px] shrink-0 -mt-4.5" />
-                  <div className="flex flex-col items-center text-center shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 text-red-500">
-                      <FileCheck className="w-5.5 h-5.5" />
+                    <div className="flex flex-col text-left justify-center select-none">
+                      <span className="text-[13px] font-bold text-slate-100 tracking-wide">Sheet Feedback</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {resources.spreadsheetId ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Connected</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Pending</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-300 tracking-wide">Live App</span>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-red-500 stroke-[3px] shrink-0 -mt-4.5" />
-                  <div className="flex flex-col items-center text-center shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 text-red-500">
-                      <Sheet className="w-5.5 h-5.5" />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-300 tracking-wide">Sheet Feedback</span>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-red-500 stroke-[3px] shrink-0 -mt-4.5" />
-                  <div className="flex flex-col items-center text-center shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 text-red-500">
+
+                  <ArrowRight className="w-4 h-4 text-slate-700 shrink-0" />
+
+                  {/* Step 4: Routing Split */}
+                  <div className="bg-[#0c101d] border border-slate-800/90 rounded-2xl p-3 flex items-center gap-3.5 min-w-[210px] shrink-0 transition-all duration-200">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
                       <GitFork className="w-5.5 h-5.5" />
                     </div>
-                    <span className="text-[10px] font-bold text-slate-300 tracking-wide">Routing Split</span>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-red-500 stroke-[3px] shrink-0 -mt-4.5" />
-                  <div className="flex flex-col items-center text-center shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 text-red-500">
-                      <Mail className="w-5.5 h-5.5" />
+                    <div className="flex flex-col text-left justify-center select-none">
+                      <span className="text-[13px] font-bold text-slate-100 tracking-wide">Routing Split</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Active</span>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-300 tracking-wide">Automated Gmail</span>
+                  </div>
+
+                  <ArrowRight className="w-4 h-4 text-slate-700 shrink-0" />
+
+                  {/* Step 5: Automated Gmail */}
+                  <div className="bg-[#0c101d] border border-slate-800/90 rounded-2xl p-3 flex items-center gap-3.5 min-w-[210px] shrink-0 transition-all duration-200">
+                    {user && token ? (
+                      <div className="w-10 h-10 rounded-xl bg-[#f43f5e]/10 border border-[#f43f5e]/20 text-[#f43f5e] flex items-center justify-center shrink-0">
+                        <Mail className="w-5.5 h-5.5" />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-slate-800/50 border border-slate-800 text-slate-500 flex items-center justify-center shrink-0">
+                        <Mail className="w-5.5 h-5.5" />
+                      </div>
+                    )}
+                    <div className="flex flex-col text-left justify-center select-none">
+                      <span className="text-[13px] font-bold text-slate-100 tracking-wide">Automated Gmail</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {user && token ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Ready</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Setup Pending</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
