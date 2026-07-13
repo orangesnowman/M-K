@@ -703,19 +703,15 @@ export default function PipelineSandbox({
                         })}
 
                         {/* Third Option: Share via Email */}
-                        <button
-                          onClick={() => {
-                            const subject = encodeURIComponent("Highly Recommend!");
-                            const body = encodeURIComponent(formData.comments || "Highly recommended feedback!");
-                            window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
-                          }}
+                        <a
+                          href={`mailto:?subject=${encodeURIComponent("Highly Recommend!")}&body=${encodeURIComponent(formData.comments || "Highly recommended feedback!")}`}
                           className="text-sm font-normal text-yellow-400 hover:text-yellow-300 hover:underline transition-all cursor-pointer flex items-center gap-2 select-none"
                         >
                           <div className="w-8 h-8 bg-slate-200 border border-slate-300 rounded-full flex items-center justify-center shrink-0 shadow-xs">
                             <Mail className="w-4 h-4 text-slate-700" />
                           </div>
                           <span>Email</span>
-                        </button>
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -733,15 +729,9 @@ export default function PipelineSandbox({
                     <h3 className="text-xl font-normal text-white font-sans">Awesome!</h3>
                   </div>
                   <div className="space-y-3">
-                    <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed font-normal">
+                    <p className="text-xl text-white max-w-md mx-auto leading-relaxed font-normal">
                       Gently, would you also like to share your review on <strong className="text-white font-normal">{nextPlatform.name}</strong>? Your review text is still copied in your clipboard.
                     </p>
-
-                    {formData.comments && (
-                      <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl max-w-sm mx-auto text-left space-y-1 shadow-2xs">
-                        <p className="text-[11px] text-slate-300 italic line-clamp-2 font-normal">"{formData.comments}"</p>
-                      </div>
-                    )}
                   </div>
 
                   <div className="space-y-3 max-w-xs mx-auto pt-2">
@@ -980,7 +970,7 @@ export default function PipelineSandbox({
                     </span>
                     {showAiCopiedBanner && (
                       <p className="text-[13px] font-bold text-slate-900 mt-2 border-l-2 border-yellow-400 pl-2 leading-normal" id="ai-copied-banner">
-                        Copied! Click submit feedback, once you arrive simply paste into the review field.
+                        Copied! Make any final edits, click 'Submit Feedback,' then paste.
                       </p>
                     )}
                   </div>
