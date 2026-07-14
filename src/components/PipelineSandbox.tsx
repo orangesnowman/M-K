@@ -363,8 +363,9 @@ export default function PipelineSandbox({
     setFeedbackError(null);
   };
 
-  const handleAutoSubmit = async () => {
+  const handleAutoSubmit = async (skipSheetAppend: boolean = false) => {
     setIsAutoSubmitting(true);
+    setHasSubmittedAuto(true);
     setHasSubmittedAuto(true);
     setAutoSubmitLogs([]);
     setFeedbackError(null);
@@ -407,33 +408,29 @@ export default function PipelineSandbox({
     const logs: string[] = [];
 
     // A. Record to Sheet
-    if (token) {
-      if (resources.spreadsheetId) {
-        try {
-          logs.push(`📝 Appending row to Sheet: "${formData.name}", ${formData.rating} Stars...`);
-          setAutoSubmitLogs([...logs]);
-          await appendFeedbackToSheet(
-            token,
-            resources.spreadsheetId,
-            formData.name,
-            formData.email,
-            formData.rating,
-            getEffectiveComments()
-          );
-          logs.push(`✅ Successfully recorded feedback row to Google Sheet.`);
-          setSheetSuccess(true);
-          setAutoSubmitLogs([...logs]);
-        } catch (err: any) {
-          const prettyErr = formatExceptionMessage(err);
-          logs.push(`⚠️ Failed writing to Google Sheet: ${prettyErr}`);
-          setAutoSubmitLogs([...logs]);
-          setFeedbackError(`Sheet Append Error: ${prettyErr}`);
-        }
-      } else {
-        logs.push(`ℹ️ Google Sheet database is offline. Skipping row record.`);
+    if (skipSheetAppend) {
+      logs.push(`ℹ️ Google Sheet row already recorded successfully.`);
+    } else {
+      try {
+        logs.push(`📝 Appending row to Sheet: "${formData.name}", ${formData.rating} Stars...`);
         setAutoSubmitLogs([...logs]);
+        await appendFeedbackToSheet(
+          formData.name,
+          formData.email,
+          formData.rating,
+          getEffectiveComments()
+        );
+        logs.push(`✅ Successfully recorded feedback row to Google Sheet.`);
+        setSheetSuccess(true);
+        setAutoSubmitLogs([...logs]);
+      } catch (err: any) {
+        const prettyErr = formatExceptionMessage(err);
+        logs.push(`⚠️ Failed writing to Google Sheet: ${prettyErr}`);
+        setAutoSubmitLogs([...logs]);
+        setFeedbackError(`Sheet Append Error: ${prettyErr}`);
       }
-
+    }
+    if (token) {
       // B. Send Gmail Responder
       try {
         const ccEmail = routingConfig.supportEmail;
@@ -468,7 +465,7 @@ export default function PipelineSandbox({
     setIsAutoSubmitting(false);
   };
 
-  const handleSubmitClick = () => {
+  const handleSubmitClick = async () => {
     const effectiveComments = getEffectiveComments();
     if (!effectiveComments || !effectiveComments.trim()) {
       setValidationError("You must fill out the review.");
@@ -483,26 +480,40 @@ export default function PipelineSandbox({
     const threshold = routingConfig.starThreshold ?? 3;
     const isPositive = formData.rating > threshold;
 
-    // Automatically copy the review to clipboard when rating is positive (above threshold)
-    if (isPositive) {
-      copyTextToClipboard(effectiveComments);
-      setShowCopiedNotification(true);
-      setTimeout(() => setShowCopiedNotification(false), 4400);
-    }
-
     if (isCurrentlyPublished) {
+      setIsAutoSubmitting(true);
+      setFeedbackError(null);
+      
+      try {
+        await appendFeedbackToSheet(
+          formData.name,
+          formData.email,
+          formData.rating,
+          effectiveComments
+        );
+      } catch (err: any) {
+        setIsAutoSubmitting(false);
+        setFeedbackError(`Failed to save feedback: ${formatExceptionMessage(err)}`);
+        return; // DO NOT REDIRECT
+      }
+
+      // Automatically copy the review to clipboard when rating is positive
+      if (isPositive) {
+        copyTextToClipboard(effectiveComments);
+        setShowCopiedNotification(true);
+        setTimeout(() => setShowCopiedNotification(false), 4400);
+      }
+
+      handleAutoSubmit(true);
+
       if (isPositive) {
         try {
           const reviewUrl = routingConfig.googleReviewsUrl || "https://g.page/r/CajrrF4R_V20EAI/review";
-          const win = window.open(reviewUrl, '_blank');
-          if (win) {
-            win.focus();
-          }
+          window.location.href = reviewUrl;
         } catch (e) {
-          console.warn("Direct navigation / popup was blocked by browser:", e);
+          console.warn("Direct navigation failed:", e);
         }
       }
-      handleAutoSubmit();
     } else {
       handleSimulateRouting();
       // Set hasSubmittedAuto to true in simulator so the developer can interact with the congrats screen
@@ -525,8 +536,6 @@ export default function PipelineSandbox({
     setFeedbackError(null);
     try {
       await appendFeedbackToSheet(
-        token!,
-        resources.spreadsheetId!,
         formData.name,
         formData.email,
         formData.rating,

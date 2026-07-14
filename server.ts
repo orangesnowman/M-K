@@ -78,6 +78,72 @@ async function startServer() {
     }
   });
 
+  // API endpoint for appending customer feedback securely to Google Sheets using a Service Account
+  app.post('/api/feedback', async (req, res) => {
+    const { name, email, rating, comments } = req.body;
+
+    const sheetId = process.env.GOOGLE_SHEET_ID;
+    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+    if (!sheetId || !clientEmail || !privateKey) {
+      console.error('[FEEDBACK ERROR] Missing Google Service Account credentials or Sheet ID.');
+      return res.status(500).json({ error: 'Server is not configured for Google Sheets integration.' });
+    }
+
+    try {
+      const { google } = await import('googleapis');
+      const auth = new google.auth.JWT(
+        clientEmail,
+        undefined,
+        privateKey,
+        ['https://www.googleapis.com/auth/spreadsheets']
+      );
+
+      const sheets = google.sheets({ version: 'v4', auth });
+      const timestamp = new Date().toLocaleString();
+      const ratingText = `${rating} Star${rating > 1 ? 's' : ''}`;
+
+      const rangesToTry = [
+        "'Form Responses 1'!A:E",
+        "Sheet1!A:E",
+        "A:E"
+      ];
+
+      let lastError: any = null;
+      let success = false;
+
+      for (const range of rangesToTry) {
+        try {
+          await sheets.spreadsheets.values.append({
+            spreadsheetId: sheetId,
+            range,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+              values: [[timestamp, name, email, ratingText, comments]]
+            }
+          });
+          success = true;
+          break;
+        } catch (err: any) {
+          lastError = err;
+          if (err.code !== 400 && err.status !== 400) {
+            break;
+          }
+        }
+      }
+
+      if (success) {
+        return res.json({ success: true });
+      } else {
+        throw lastError || new Error('Failed to append to all attempted ranges');
+      }
+    } catch (error: any) {
+      console.error('[FEEDBACK ERROR] Failed writing to sheet:', error);
+      return res.status(500).json({ error: error.message || 'Failed writing to Google Sheet.' });
+    }
+  });
+
   // API endpoint for generating or improving customer reviews using Gemini with robust offline fallbacks
   app.post('/api/suggest-seo-review', async (req, res) => {
     const { rating, currentComments } = req.body;
@@ -89,22 +155,22 @@ async function startServer() {
       if (!cleanComments) {
         return "Great experience with M&K Used Auto Parts. Their team provided fast auto repair and quality auto parts at very competitive pricing.";
       }
-      
+
       const lower = cleanComments.toLowerCase();
-      
+
       // Check specific service keywords to stay strictly on subject
       if (lower.includes("sell") || lower.includes("junk") || lower.includes("scrap") || lower.includes("old car") || lower.includes("tow")) {
         return `${cleanComments}. We got competitive pricing for our junk car removal with fast, hassle-free towing from M&K.`;
       }
-      
+
       if (lower.includes("tire") || lower.includes("align") || lower.includes("wheel") || lower.includes("mechanic") || lower.includes("brake") || lower.includes("oil")) {
         return `${cleanComments}. The shop provided quick tire installation and dependable auto repair service.`;
       }
-      
+
       if (lower.includes("battery") || lower.includes("part") || lower.includes("engine") || lower.includes("transmission") || lower.includes("alternator") || lower.includes("mirror") || lower.includes("light") || lower.includes("door")) {
         return `${cleanComments}. M&K supplied exactly the quality used auto parts we needed at a great price.`;
       }
-      
+
       // Default concise fallback staying close to subject
       return `${cleanComments}. M&K Used Auto Parts provided excellent customer service and reliable auto repair.`;
     };

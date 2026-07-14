@@ -276,57 +276,37 @@ export async function sendGmailEmail(
 }
 
 /**
- * Appends a simulated response row to a Google Sheet
+ * Appends a simulated response row to a Google Sheet via the Express server
  */
 export async function appendFeedbackToSheet(
-  token: string,
-  spreadsheetId: string,
   name: string,
   email: string,
   rating: number,
   comments: string
 ): Promise<boolean> {
-  const timestamp = new Date().toLocaleString();
-  const ratingText = `${rating} Star${rating > 1 ? 's' : ''}`;
+  try {
+    const response = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name, email, rating, comments })
+    });
 
-  const rangesToTry = [
-    "'Form Responses 1'!A:E",
-    "Sheet1!A:E",
-    "A:E"
-  ];
-
-  let lastError: any = null;
-
-  for (const range of rangesToTry) {
-    try {
-      const encodedRange = encodeURIComponent(range);
-      const response = await fetchViaProxy(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}:append?valueInputOption=USER_ENTERED`,
-        token,
-        'POST',
-        {
-          values: [[timestamp, name, email, ratingText, comments]]
-        }
-      );
-      
-      if (response.ok) {
-        await handleResponse(response, 'Recording feedback to Sheet failed');
-        return true;
-      } else {
-        const text = await response.text();
-        let errorDetail = `Status ${response.status}`;
-        try {
-          const errJson = JSON.parse(text);
-          errorDetail = errJson.error?.message || errJson.error || JSON.stringify(errJson);
-        } catch {
-          errorDetail = text.substring(0, 150) || `Non-JSON response with status ${response.status}`;
-        }
-        lastError = new Error(errorDetail);
+    if (response.ok) {
+      return true;
+    } else {
+      const text = await response.text();
+      let errorDetail = `Status ${response.status}`;
+      try {
+        const errJson = JSON.parse(text);
+        errorDetail = errJson.error?.message || errJson.error || JSON.stringify(errJson);
+      } catch {
+        errorDetail = text.substring(0, 150) || `Non-JSON response with status ${response.status}`;
       }
-    } catch (err: any) {
-      lastError = err;
+      throw new Error(errorDetail);
     }
+  } catch (err: any) {
+    throw err;
   }
-
-  throw lastError || new Error('Recording feedback to Sheet failed on all tried ranges.');
 }
