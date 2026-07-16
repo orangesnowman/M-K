@@ -31,3 +31,23 @@ export interface RoutingConfiguration {
   bbbEnabled: boolean;
   bbbUrl: string;
 }
+
+export interface Client {
+  id: string;
+  name: string;
+  resources: WorkspaceResources;
+  routingConfig: RoutingConfiguration;
+}
+
+export interface ReviewRecord {
+  id: string;
+  clientId: string;
+  clientName: string;
+  timestamp: string;
+  name: string;
+  email: string;
+  rating: number;
+  comments: string;
+  status: 'synced' | 'local';
+}
+

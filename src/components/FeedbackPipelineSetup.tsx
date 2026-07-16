@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
 import { createGoogleSheet } from '../services/googleWorkspace';
-import { WorkspaceResources } from '../types';
+import { WorkspaceResources, ReviewRecord } from '../types';
 import {
   Sparkles,
   Sheet,
@@ -14,7 +14,12 @@ import {
   LogOut,
   Layers,
   ArrowUpRight,
-  Info
+  Info,
+  Star,
+  Trash2,
+  Zap,
+  Search,
+  Copy
 } from 'lucide-react';
 
 interface FeedbackPipelineSetupProps {
@@ -26,6 +31,9 @@ interface FeedbackPipelineSetupProps {
   onLogout: () => void;
   isLoggingIn: boolean;
   authError?: string | null;
+  reviews?: ReviewRecord[];
+  onClearReviews?: () => void;
+  activeClientId?: string;
 }
 
 export default function FeedbackPipelineSetup({
@@ -36,7 +44,10 @@ export default function FeedbackPipelineSetup({
   onLogin,
   onLogout,
   isLoggingIn,
-  authError = null
+  authError = null,
+  reviews = [],
+  onClearReviews,
+  activeClientId
 }: FeedbackPipelineSetupProps) {
   const [pipelineName, setPipelineName] = useState('Customer Feedback Center');
   const [isDeploying, setIsDeploying] = useState(false);
@@ -108,12 +119,12 @@ export default function FeedbackPipelineSetup({
         
         {/* Welcome Auth Panel */}
         {!user ? (
-          <div className="text-center py-10 px-6 border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/50">
-            <div className="w-14 h-14 bg-red-50 text-red-650 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-100">
+          <div className="text-left py-10 px-6 border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/50">
+            <div className="w-14 h-14 bg-red-50 text-red-650 rounded-2xl flex items-center justify-center mb-4 border border-red-100">
               <Sparkles className="w-6 h-6 text-red-650" />
             </div>
             <h3 className="text-xl font-bold text-slate-800">Authenticate with Google</h3>
-            <p className="text-sm text-slate-500 max-w-md mx-auto mt-2 mb-6">
+            <p className="text-sm text-slate-500 max-w-md mt-2 mb-6">
               Grant permissions to setup, generate, and test Google Forms, Sheets, and branching Gmail integrations directly associated with your business ecosystem.
             </p>
 
@@ -121,7 +132,7 @@ export default function FeedbackPipelineSetup({
               <button
                 onClick={onLogin}
                 disabled={isLoggingIn}
-                className="gsi-material-button mx-auto cursor-pointer flex items-center justify-center"
+                className="gsi-material-button cursor-pointer flex items-center justify-center"
                 id="google-signin-btn"
               >
                 <div className="gsi-material-button-state"></div>
@@ -139,7 +150,7 @@ export default function FeedbackPipelineSetup({
                 </div>
               </button>
 
-              <div className="max-w-md mx-auto bg-red-50/50 rounded-2xl p-4 border border-red-100/40 text-left mt-2">
+              <div className="max-w-md bg-red-50/50 rounded-2xl p-4 border border-red-100/40 text-left mt-2">
                 <p className="text-xs text-slate-600 leading-normal flex gap-1.5">
                   <Info className="w-4.5 h-4.5 text-red-500 shrink-0 mt-0.5" />
                   <span>
@@ -161,7 +172,7 @@ export default function FeedbackPipelineSetup({
               </div>
 
               {authError && (
-                <div className="mt-4 max-w-md mx-auto text-sm text-rose-600 bg-rose-50 border border-rose-100 p-4 rounded-2xl text-left">
+                <div className="mt-4 max-w-md text-sm text-rose-600 bg-rose-50 border border-rose-100 p-4 rounded-2xl text-left">
                   <div className="flex items-center gap-2 font-bold text-rose-800">
                     <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />
                     <span>Popup Blocked or Auth Failed</span>
@@ -188,7 +199,12 @@ export default function FeedbackPipelineSetup({
                   </div>
                 )}
                 <div>
-                  <span className="block text-xs text-slate-400">Authenticated Google User</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="block text-xs text-slate-400">Authenticated Google User</span>
+                    {!token && (
+                      <span className="text-[9.5px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-sm border border-amber-200 animate-pulse">Session Expired</span>
+                    )}
+                  </div>
                   <span className="block text-sm font-semibold text-slate-800">{user.displayName || user.email}</span>
                 </div>
               </div>
@@ -233,7 +249,11 @@ export default function FeedbackPipelineSetup({
                   <button
                     onClick={() => {
                       if (!token) {
-                        setErrorMessage('Please sign in to your Google Account first.');
+                        if (onLogin) {
+                          onLogin();
+                        } else {
+                          setErrorMessage('Please sign in to your Google Account first.');
+                        }
                       } else {
                         setShowConfirm(true);
                       }
@@ -250,7 +270,7 @@ export default function FeedbackPipelineSetup({
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4" />
-                        <span>Deploy</span>
+                        <span>{(!token && user) ? 'Re-authorize & Deploy' : 'Deploy'}</span>
                       </>
                     )}
                   </button>
@@ -345,6 +365,209 @@ export default function FeedbackPipelineSetup({
             )}
           </div>
         )}
+
+        {/* AI Polish Draft Feature Showcase */}
+        <div className="mt-8 bg-gradient-to-br from-slate-50 to-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-xs" id="ai-polish-draft-showcase">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-yellow-50 text-yellow-600 rounded-2xl border border-yellow-100">
+                  <Sparkles className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">The "Polish Draft" SEO Engine</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Automated high-impact testimonial formatting powered by Gemini AI</p>
+                </div>
+              </div>
+              <span className="self-start sm:self-auto px-2.5 py-1 bg-red-50 text-red-750 text-[10.5px] font-bold uppercase tracking-wider rounded-full border border-red-100/60">
+                Premium Feature
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Feature 1 */}
+              <div className="bg-white/80 border border-slate-100 p-5 rounded-2xl flex flex-col hover:shadow-xs transition-all duration-200">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+                  <Zap className="w-4.5 h-4.5" />
+                </div>
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">What "Polish Draft" Does</h4>
+                <p className="text-[12.5px] text-slate-600 leading-relaxed mt-2">
+                  When a satisfied customer clicks <span className="font-semibold text-slate-850">"Polish Draft,"</span> our system transforms their simple rating or brief comment into a well-structured, detailed, authentic review in seconds.
+                </p>
+                <div className="mt-auto pt-3 border-t border-slate-50 text-[11px] text-slate-400 italic">
+                  Transforms brief feedback into rich testimonials
+                </div>
+              </div>
+
+              {/* Feature 2 */}
+              <div className="bg-white/80 border border-slate-100 p-5 rounded-2xl flex flex-col hover:shadow-xs transition-all duration-200">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+                  <Search className="w-4.5 h-4.5" />
+                </div>
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Why This Matters for SEO</h4>
+                <p className="text-[12.5px] text-slate-600 leading-relaxed mt-2">
+                  Search engines reward businesses with frequent, detailed reviews. Enriched reviews contain more relevant keywords and improve your local search ranking — driving more organic traffic.
+                </p>
+                <div className="mt-auto pt-3 border-t border-slate-50 text-[11px] text-slate-400 italic">
+                  Improves local search ranking and keywords
+                </div>
+              </div>
+
+              {/* Feature 3 */}
+              <div className="bg-white/80 border border-slate-100 p-5 rounded-2xl flex flex-col hover:shadow-xs transition-all duration-200">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
+                  <Copy className="w-4.5 h-4.5" />
+                </div>
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Zero Effort for Customer</h4>
+                <p className="text-[12.5px] text-slate-600 leading-relaxed mt-2">
+                  The polished review is copied automatically to their clipboard. It's the lowest possible barrier: one simple redirect, one quick paste, and one click to submit.
+                </p>
+                <div className="mt-auto pt-3 border-t border-slate-50 text-[11px] text-slate-400 italic">
+                  1-click redirect and clipboard auto-copy
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Feedback Submissions Center */}
+        <div className="mt-8 border border-slate-200 rounded-3xl bg-white shadow-2xs overflow-hidden">
+          <div className="px-6 py-5 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Sheet Feedback Center Logs</h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Real-time monitoring log of all feedback and rating submissions routed to Google Sheets or captured locally.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+              {reviews.length > 0 && (
+                <button
+                  onClick={onClearReviews}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-rose-100 cursor-pointer"
+                  id="clear-reviews-btn"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear Logs</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="p-6">
+            {reviews.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3 border border-slate-100">
+                  <FileSpreadsheet className="w-5 h-5 text-slate-400" />
+                </div>
+                <h4 className="text-xs font-bold text-slate-800">No submissions recorded yet</h4>
+                <p className="text-[11px] text-slate-400 mt-1 max-w-xs mx-auto">
+                  Once customers submit their feedback using the simulator or the active client forms, they will get populated here in real-time.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Quick stats panel */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                  <div>
+                    <span className="block text-[10px] text-slate-400 font-bold uppercase">Total Submissions</span>
+                    <span className="block text-xl font-extrabold text-slate-800 mt-0.5">{reviews.length}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400 font-bold uppercase">Positive (4-5 ★)</span>
+                    <span className="block text-xl font-extrabold text-emerald-600 mt-0.5">
+                      {reviews.filter(r => r.rating >= 4).length}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400 font-bold uppercase">Critical (1-3 ★)</span>
+                    <span className="block text-xl font-extrabold text-amber-600 mt-0.5">
+                      {reviews.filter(r => r.rating <= 3).length}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400 font-bold uppercase">Google Synced</span>
+                    <span className="block text-xl font-extrabold text-blue-600 mt-0.5">
+                      {reviews.filter(r => r.status === 'synced').length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* List of submissions */}
+                <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+                  {reviews.map((review) => {
+                    const isPositive = review.rating >= 4;
+                    return (
+                      <div 
+                        key={review.id} 
+                        className={`p-4 rounded-2xl border transition-all ${
+                          isPositive 
+                            ? 'bg-emerald-50/10 border-emerald-50 hover:border-emerald-100' 
+                            : 'bg-amber-50/10 border-amber-50 hover:border-amber-100'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-3.5 h-3.5 ${
+                                    star <= review.rating
+                                      ? 'text-amber-500 fill-amber-500'
+                                      : 'text-slate-200 fill-slate-100'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {review.timestamp}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold font-mono">
+                              Client: {review.clientName || review.clientId}
+                            </span>
+                            {review.status === 'synced' ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Synced to Sheet</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+                                <span>Local Sandbox Log</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-700 font-medium mt-3 leading-relaxed whitespace-pre-wrap">
+                          "{review.comments}"
+                        </p>
+
+                        <div className="mt-3.5 pt-3 border-t border-slate-100/60 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[10px] uppercase">
+                              {review.name.slice(0, 2)}
+                            </div>
+                            <div>
+                              <span className="block text-xs font-bold text-slate-700">{review.name}</span>
+                              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{review.email}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Beautiful State-Driven Overlay Modal Dialog (Avoids Iframe blocks on window.confirm) */}

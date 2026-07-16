@@ -276,37 +276,97 @@ export async function sendGmailEmail(
 }
 
 /**
- * Appends a simulated response row to a Google Sheet via the Express server
+ * Appends a simulated response row to a Google Sheet
  */
 export async function appendFeedbackToSheet(
+  token: string,
+  spreadsheetId: string,
   name: string,
   email: string,
   rating: number,
   comments: string
 ): Promise<boolean> {
-  try {
-    const response = await fetch('/api/feedback', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ name, email, rating, comments })
-    });
+  const timestamp = new Date().toLocaleString();
+  const ratingText = `${rating} Star${rating > 1 ? 's' : ''}`;
 
-    if (response.ok) {
-      return true;
-    } else {
-      const text = await response.text();
-      let errorDetail = `Status ${response.status}`;
-      try {
-        const errJson = JSON.parse(text);
-        errorDetail = errJson.error?.message || errJson.error || JSON.stringify(errJson);
-      } catch {
-        errorDetail = text.substring(0, 150) || `Non-JSON response with status ${response.status}`;
+  const rangesToTry = [
+    "'Form Responses 1'!A:E",
+    "Sheet1!A:E",
+    "A:E"
+  ];
+
+  let lastError: any = null;
+
+  for (const range of rangesToTry) {
+    try {
+      const encodedRange = encodeURIComponent(range);
+      const response = await fetchViaProxy(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}:append?valueInputOption=USER_ENTERED`,
+        token,
+        'POST',
+        {
+          values: [[timestamp, name, email, ratingText, comments]]
+        }
+      );
+      
+      if (response.ok) {
+        await handleResponse(response, 'Recording feedback to Sheet failed');
+        return true;
+      } else {
+        const text = await response.text();
+        let errorDetail = `Status ${response.status}`;
+        try {
+          const errJson = JSON.parse(text);
+          errorDetail = errJson.error?.message || errJson.error || JSON.stringify(errJson);
+        } catch {
+          errorDetail = text.substring(0, 150) || `Non-JSON response with status ${response.status}`;
+        }
+        lastError = new Error(errorDetail);
       }
-      throw new Error(errorDetail);
+    } catch (err: any) {
+      lastError = err;
     }
-  } catch (err: any) {
-    throw err;
   }
+
+  throw lastError || new Error('Recording feedback to Sheet failed on all tried ranges.');
 }
+
+/**
+ * Lists Google Business Profile (formerly Google My Business) accounts associated with the authenticated Google user.
+ */
+export async function listGmbAccounts(token: string): Promise<any[]> {
+  const response = await fetchViaProxy(
+    'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
+    token,
+    'GET'
+  );
+  const data = await handleResponse(response, 'Failed to fetch Google My Business accounts');
+  return data.accounts || [];
+}
+
+/**
+ * Lists locations within a specific Google Business Profile account.
+ */
+export async function listGmbLocations(token: string, accountName: string): Promise<any[]> {
+  // accountName is in the format "accounts/{accountId}"
+  const url = `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storefrontAddress`;
+  const response = await fetchViaProxy(url, token, 'GET');
+  const data = await handleResponse(response, 'Failed to fetch Google My Business locations');
+  return data.locations || [];
+}
+
+/**
+ * Lists reviews for a specific Google Business Profile location.
+ */
+export async function listGmbReviews(token: string, accountName: string, locationName: string): Promise<any[]> {
+  // locationName can be "locations/{locationId}" or already "accounts/{accountId}/locations/{locationId}"
+  let fullPath = locationName;
+  if (!locationName.startsWith('accounts/')) {
+    fullPath = `${accountName}/${locationName}`;
+  }
+  const url = `https://mybusiness.googleapis.com/v4/${fullPath}/reviews`;
+  const response = await fetchViaProxy(url, token, 'GET');
+  const data = await handleResponse(response, 'Failed to fetch Google My Business reviews');
+  return data.reviews || [];
+}
+
